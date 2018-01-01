@@ -47,7 +47,7 @@ void KEWindow::CreateKEWindow(int p_x , int p_y ,int p_width , int p_height, SDL
 	VkApplicationInfo appInfo = {};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pNext = NULL;
-	appInfo.pApplicationName = "Vulkan Program Template";
+	appInfo.pApplicationName = "KEngine-VulkanRenderer";
 	appInfo.applicationVersion = 1;
 	appInfo.pEngineName = "LunarG SDK";
 	appInfo.engineVersion = 1;
@@ -66,13 +66,11 @@ void KEWindow::CreateKEWindow(int p_x , int p_y ,int p_width , int p_height, SDL
 	instInfo.ppEnabledLayerNames = layers.data();
 
 	// Create the Vulkan instance.
-	VkInstance instance;
-	VkResult result = vkCreateInstance(&instInfo, NULL, &instance);
+	VkResult result = vkCreateInstance(&instInfo, NULL, &m_instance);
 	assert(result == VK_SUCCESS);
 
 	// Create a Vulkan surface for rendering
-	VkSurfaceKHR surface;
-	createVulkanSurface(instance, m_SDLWindow, &surface);
+	createVulkanSurface(m_instance, m_SDLWindow, &m_surface);
 
 #endif // VULKAN_RENDERER
 

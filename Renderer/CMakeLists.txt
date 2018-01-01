@@ -12,7 +12,7 @@ source_group("OpenGLRHI" FILES ${opengl_rhi})
 
 
 add_library(Renderer STATIC ${dot_cpp} ${dot_h} ${vulkan_rhi} ${opengl_rhi})
-target_link_libraries(Renderer vulkan-1)
+target_link_libraries(Renderer vulkan-1 EngineCore)
 
 
 

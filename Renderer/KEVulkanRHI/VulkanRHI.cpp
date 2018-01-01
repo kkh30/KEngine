@@ -1,6 +1,6 @@
 #include "KEVulkanRHI\VulkanRHI.h"
 #include "KEWindow.h"
-#include <string>
+#include "KELog.h"
 namespace KEVulkanRHI {
 
 
@@ -14,13 +14,13 @@ namespace KEVulkanRHI {
 	{
 	}
 
-	void  VulkanRHI::Update() {
-		//printf("Update\n");
+	void VulkanRHI::Update() {
+
 	}
 
 	void  VulkanRHI::Init() {
 
-
+		KELog::Log("Init VulkanRHI");
 
 	}
 

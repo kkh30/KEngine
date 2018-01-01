@@ -40,6 +40,8 @@ private:
 	bool is_running;
 	std::function<void(void)> m_renderer_update_func;
 #ifdef VULKAN_RENDERER
+	VkInstance m_instance;
+	VkSurfaceKHR m_surface;
 
 
 #endif // VULKAN_RENDERER
