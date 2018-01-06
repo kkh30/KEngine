@@ -12,7 +12,22 @@ std::vector<const char*> getAvailableWSIExtensions();
 #endif // VULKAN_RENDERER
 
 
-void KEWindow::CreateKEWindow(int p_x , int p_y ,int p_width , int p_height, SDL_WindowFlags p_flags){
+KEWindow::KEWindow():
+	m_width(0),
+	m_height(0),
+	is_running(false),
+	m_SDLWindow(nullptr),
+	m_renderer_update_func(std::function<void(void)>())
+#ifdef VULKAN_RENDERER
+	 ,m_instance(VK_NULL_HANDLE), 
+	m_surface(VK_NULL_HANDLE)
+#endif // VULKAN_RENDERER
+{
+
+}
+
+void KEWindow::CreateKEWindow(int p_x , int p_y ,int p_width , int p_height, SDL_WindowFlags p_flags)
+{
 
 	m_width = p_width;
 	m_height = p_height;
@@ -33,6 +48,8 @@ void KEWindow::CreateKEWindow(int p_x , int p_y ,int p_width , int p_height, SDL
 		assert(0);
 
 	}
+
+	is_running = true;
 
 #ifdef VULKAN_RENDERER
 	// Use validation layers if this is a debug build, and use WSI extensions regardless
@@ -105,11 +122,6 @@ void KEWindow::Show() {
 }
 
 
-
-KEWindow::KEWindow():is_running(true)
-{
-	
-}
 
 KEWindow::~KEWindow()
 {
