@@ -9,6 +9,7 @@
 #include "KEWindow.h"
 #include "VulkanDevice.h"
 #include "VulkanSwapChain.h"
+#include "VulkanConstants.h"
 
 namespace KEVulkanRHI {
 
@@ -33,15 +34,42 @@ namespace KEVulkanRHI {
 		std::vector<const char*> m_vk_layers;
 		VkSurfaceKHR m_surface;
 		VulkanSwapChain m_swapChain;
+		std::vector<VkCommandBuffer> m_draw_cmd_buffers;
+
+		struct DepthStencilBuffer{
+			VkImage image;
+			VkDeviceMemory mem;
+			VkImageView view;
+		}m_depth_stencil_buffer;
+
+		VkRenderPass m_renderPass;
+		std::vector<VkFramebuffer> m_frameBuffers;
+		VkRect2D m_frame_rect;
+		struct SynchronizationSemaphore {
+			VkSemaphore presentCompleteSemaphore;
+			VkSemaphore renderCompleteSemaphore;
+		}m_semaphores;
+		std::vector<VkFence> m_waitFences;
+		uint32_t m_currentBuffer;
+		VkQueue m_graphics_queue;
+	private:
+		void ClearScreen();
+
 
 	private:
-		
 		void InitInstance();
 		void EnumeratePhaysicalDevices();
 		void InitLogicDevice();
-		void InitGraphicsCommandQueue();
+		void InitGraphicsCommandPool();
 		void SetupDebug();
 		void InitSwapChain();
+		void InitDepthStencil();
+		void InitFrameBuffer();
+		void InitCmdQueue();
+		void InitRenderPass();
+		void InitDrawCmdBuffers();
+		void RecordDrawCmdBuffers();
+		void PrepareSynchronizationPrimitives();
 		int createVulkanSurface(VkInstance instance, SDL_Window* window, VkSurfaceKHR* surface);
 		std::vector<const char*> getAvailableWSIExtensions();
 

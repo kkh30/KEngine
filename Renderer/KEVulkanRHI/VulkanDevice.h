@@ -75,7 +75,7 @@ struct VulkanDevice
 		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
 		assert(queueFamilyCount > 0);
 		queueFamilyProperties.resize(queueFamilyCount);
-		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilyProperties.data());
+		vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilyProperties.data()); 
 
 		// Get list of supported extensions
 		uint32_t extCount = 0;
@@ -311,11 +311,11 @@ struct VulkanDevice
 
 		VkResult result = vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &logicalDevice);
 
-		if (result == VK_SUCCESS)
-		{
-			// Create a default command pool for graphics command buffers
-			commandPool = createCommandPool(queueFamilyIndices.graphics);
-		}
+		//if (result == VK_SUCCESS)
+		//{
+		//	// Create a default command pool for graphics command buffers
+		//	commandPool = createCommandPool(queueFamilyIndices.graphics);
+		//}
 
 		this->enabledFeatures = enabledFeatures;
 

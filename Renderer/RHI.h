@@ -9,7 +9,13 @@ public:
 	virtual ~RHI() {};
 	virtual void Init() = 0;
 	virtual void Update() = 0;
-private:
+
+protected:
+
+
+protected:
+	virtual void ClearScreen() = 0;
+	
 
 };
 
