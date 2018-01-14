@@ -9,6 +9,7 @@ include_directories(${PROJECT_SOURCE_DIR}/EngineCore)
 include_directories(${PROJECT_SOURCE_DIR}/ThirdParty)
 include_directories(${PROJECT_SOURCE_DIR}/Renderer)
 include_directories(${PROJECT_SOURCE_DIR}/Framework)
+include_directories(${PROJECT_SOURCE_DIR}/GamePlay)
 
 
 link_directories("C:/Windows/SysWOW64")

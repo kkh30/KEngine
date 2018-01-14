@@ -9,12 +9,6 @@
 #include "EngineConstans.h"
 
 
-#ifdef VULKAN_RENDERER
-#include "KEVulkanRHI\vulkan\vulkan.h"
-#endif // VULKAN_RENDERER
-
-
-
 //KEWindow Implemented In A Singleton Way,
 //As Engine Assumes There Will Use Only One Window.
 class KEWindow
@@ -30,6 +24,11 @@ public:
 	void CreateKEWindow(int p_x , int p_y , int p_width,int p_height,SDL_WindowFlags p_flags);
 	void Show();
 	inline void SetRendererFunc(std::function<void(void)> p_renderer_func) { m_renderer_update_func = p_renderer_func; }
+	inline SDL_Window* GetSDLWindow() { return m_SDLWindow; };
+	HWND GetNativeWindowHandle();
+	inline uint32_t GetWidth() const { return m_width; }
+	inline uint32_t GetHeight() const { return m_height; }
+	inline const std::string GetWindowTitle() const { return m_title; }
 	~KEWindow();
 
 private:
@@ -38,13 +37,9 @@ private:
 	int m_width;
 	int m_height;
 	bool is_running;
+	std::string m_title;
 	std::function<void(void)> m_renderer_update_func;
-#ifdef VULKAN_RENDERER
-	VkInstance m_instance;
-	VkSurfaceKHR m_surface;
 
-
-#endif // VULKAN_RENDERER
 
 
 };
