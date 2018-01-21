@@ -9,7 +9,7 @@ namespace KEVulkanRHI {
 
 	VulkanRHI::VulkanRHI():
 		m_instance(VK_NULL_HANDLE),
-		m_vk_device(nullptr),
+		m_vk_device(VulkanDevice::GetVulkanDevice()),
 		m_graphics_cmd_pool(VK_NULL_HANDLE), 
 		m_surface(VK_NULL_HANDLE),
 		m_swapChain(VulkanSwapChain()),
@@ -107,8 +107,8 @@ namespace KEVulkanRHI {
 		VK_CHECK_RESULT(m_swapChain.acquireNextImage(m_semaphores.presentCompleteSemaphore, &m_currentBuffer));
 
 		// Use a fence to wait until the command buffer has finished execution before using it again
-		VK_CHECK_RESULT(vkWaitForFences(m_vk_device->logicalDevice, 1, &m_waitFences[m_currentBuffer], VK_TRUE, UINT64_MAX));
-		VK_CHECK_RESULT(vkResetFences(m_vk_device->logicalDevice, 1, &m_waitFences[m_currentBuffer]));
+		VK_CHECK_RESULT(vkWaitForFences(m_vk_device.logicalDevice, 1, &m_waitFences[m_currentBuffer], VK_TRUE, UINT64_MAX));
+		VK_CHECK_RESULT(vkResetFences(m_vk_device.logicalDevice, 1, &m_waitFences[m_currentBuffer]));
 
 		// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
 		VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -159,10 +159,10 @@ namespace KEVulkanRHI {
 		semaphoreCreateInfo.pNext = nullptr;
 
 		// Semaphore used to ensures that image presentation is complete before starting to submit again
-		VK_CHECK_RESULT(vkCreateSemaphore(m_vk_device->logicalDevice, &semaphoreCreateInfo, nullptr, &m_semaphores.presentCompleteSemaphore));
+		VK_CHECK_RESULT(vkCreateSemaphore(m_vk_device.logicalDevice, &semaphoreCreateInfo, nullptr, &m_semaphores.presentCompleteSemaphore));
 
 		// Semaphore used to ensures that all commands submitted have been finished before submitting the image to the queue
-		VK_CHECK_RESULT(vkCreateSemaphore(m_vk_device->logicalDevice, &semaphoreCreateInfo, nullptr, &m_semaphores.renderCompleteSemaphore));
+		VK_CHECK_RESULT(vkCreateSemaphore(m_vk_device.logicalDevice, &semaphoreCreateInfo, nullptr, &m_semaphores.renderCompleteSemaphore));
 
 		// Fences (Used to check draw command buffer completion)
 		VkFenceCreateInfo fenceCreateInfo = {};
@@ -172,7 +172,7 @@ namespace KEVulkanRHI {
 		m_waitFences.resize(m_draw_cmd_buffers.size());
 		for (auto& fence : m_waitFences)
 		{
-			VK_CHECK_RESULT(vkCreateFence(m_vk_device->logicalDevice, &fenceCreateInfo, nullptr, &fence));
+			VK_CHECK_RESULT(vkCreateFence(m_vk_device.logicalDevice, &fenceCreateInfo, nullptr, &fence));
 		}
 	}
 
@@ -185,11 +185,11 @@ namespace KEVulkanRHI {
 		l_draw_cmd_allc_info.commandPool = m_graphics_cmd_pool;
 		l_draw_cmd_allc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		l_draw_cmd_allc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		vkAllocateCommandBuffers(m_vk_device->logicalDevice, &l_draw_cmd_allc_info, m_draw_cmd_buffers.data());
+		vkAllocateCommandBuffers(m_vk_device.logicalDevice, &l_draw_cmd_allc_info, m_draw_cmd_buffers.data());
 	}
 
 	void VulkanRHI::InitCmdQueue() {
-		vkGetDeviceQueue(m_vk_device->logicalDevice, m_vk_device->getQueueFamilyIndex(VK_QUEUE_GRAPHICS_BIT), 0, &m_graphics_queue);
+		vkGetDeviceQueue(m_vk_device.logicalDevice, m_vk_device.getQueueFamilyIndex(VK_QUEUE_GRAPHICS_BIT), 0, &m_graphics_queue);
 	}
 
 
@@ -233,15 +233,15 @@ namespace KEVulkanRHI {
 
 		VkMemoryRequirements memReqs;
 
-		VK_CHECK_RESULT(vkCreateImage(m_vk_device->logicalDevice, &image, nullptr, &m_depth_stencil_buffer.image));
-		vkGetImageMemoryRequirements(m_vk_device->logicalDevice, m_depth_stencil_buffer.image, &memReqs);
+		VK_CHECK_RESULT(vkCreateImage(m_vk_device.logicalDevice, &image, nullptr, &m_depth_stencil_buffer.image));
+		vkGetImageMemoryRequirements(m_vk_device.logicalDevice, m_depth_stencil_buffer.image, &memReqs);
 		mem_alloc.allocationSize = memReqs.size;
-		mem_alloc.memoryTypeIndex = m_vk_device->getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device->logicalDevice, &mem_alloc, nullptr, &m_depth_stencil_buffer.mem));
-		VK_CHECK_RESULT(vkBindImageMemory(m_vk_device->logicalDevice, m_depth_stencil_buffer.image, m_depth_stencil_buffer.mem, 0));
+		mem_alloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &mem_alloc, nullptr, &m_depth_stencil_buffer.mem));
+		VK_CHECK_RESULT(vkBindImageMemory(m_vk_device.logicalDevice, m_depth_stencil_buffer.image, m_depth_stencil_buffer.mem, 0));
 
 		depthStencilView.image = m_depth_stencil_buffer.image;
-		VK_CHECK_RESULT(vkCreateImageView(m_vk_device->logicalDevice, &depthStencilView, nullptr, &m_depth_stencil_buffer.view));
+		VK_CHECK_RESULT(vkCreateImageView(m_vk_device.logicalDevice, &depthStencilView, nullptr, &m_depth_stencil_buffer.view));
 	}
 	void VulkanRHI::InitFrameBuffer() {
 		VkImageView attachments[2];
@@ -264,7 +264,7 @@ namespace KEVulkanRHI {
 		for (uint32_t i = 0; i < m_frameBuffers.size(); i++)
 		{
 			attachments[0] = m_swapChain.buffers[i].view;
-			VK_CHECK_RESULT(vkCreateFramebuffer(m_vk_device->logicalDevice, &frameBufferCreateInfo, nullptr, &m_frameBuffers[i]));
+			VK_CHECK_RESULT(vkCreateFramebuffer(m_vk_device.logicalDevice, &frameBufferCreateInfo, nullptr, &m_frameBuffers[i]));
 		}
 	}
 	void VulkanRHI::InitRenderPass()  {
@@ -335,11 +335,11 @@ namespace KEVulkanRHI {
 		renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
 		renderPassInfo.pDependencies = dependencies.data();
 
-		VK_CHECK_RESULT(vkCreateRenderPass(m_vk_device->logicalDevice, &renderPassInfo, nullptr, &m_renderPass));
+		VK_CHECK_RESULT(vkCreateRenderPass(m_vk_device.logicalDevice, &renderPassInfo, nullptr, &m_renderPass));
 	}
 
 	void VulkanRHI::InitSwapChain() {
-		m_swapChain.connect(m_instance, m_physical_devices[0], m_vk_device->logicalDevice);
+		m_swapChain.connect(m_instance, m_physical_devices[0], m_vk_device.logicalDevice);
 		m_swapChain.initVKSurfaceWithSystemSurface(m_surface);
 		uint32_t l_width = KEWindow::GetWindow().GetWidth();
 		uint32_t l_heigth = KEWindow::GetWindow().GetHeight();
@@ -403,19 +403,19 @@ namespace KEVulkanRHI {
 
 		VkCommandPoolCreateInfo l_cmd_pool_info = {};
 		l_cmd_pool_info.flags = 0;
-		l_cmd_pool_info.queueFamilyIndex = m_vk_device->queueFamilyIndices.graphics;
+		l_cmd_pool_info.queueFamilyIndex = m_vk_device.queueFamilyIndices.graphics;
 		l_cmd_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
-		vkCreateCommandPool(m_vk_device->logicalDevice, &l_cmd_pool_info, nullptr, &m_graphics_cmd_pool);
+		vkCreateCommandPool(m_vk_device.logicalDevice, &l_cmd_pool_info, nullptr, &m_graphics_cmd_pool);
 	
 
 	
 	}
 
 	void VulkanRHI::InitLogicDevice() {
-		m_vk_device = new VulkanDevice(m_physical_devices[0]);
+		m_vk_device.CreateDevice(m_physical_devices[0]);
 		std::vector<const char*> l_extensions;
-		m_vk_device->createLogicalDevice(m_vk_device->features, l_extensions);
+		m_vk_device.createLogicalDevice(m_vk_device.features, l_extensions);
 
 	}
 

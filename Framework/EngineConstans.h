@@ -2,6 +2,7 @@
 #define __ENGINE_CONSTANTS_H__
 
 #define VULKAN_RENDERER
+#define INLINE __forceinline
 #include <stdint.h>
 #include <assert.h>
 #include "KELog.h"

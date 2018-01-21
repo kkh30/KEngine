@@ -27,7 +27,7 @@ namespace KEVulkanRHI {
 
 	private:
 		VkInstance m_instance;
-		VulkanDevice* m_vk_device;
+		VulkanDevice& m_vk_device;
 		std::vector<VkPhysicalDevice> m_physical_devices;
 		VkCommandPool m_graphics_cmd_pool;
 		std::vector<const char*> m_vk_extensions;

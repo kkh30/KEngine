@@ -14,6 +14,55 @@
 
 #include "vulkan/vulkan.h"
 #include "VulkanTools.h"
+#include "VulkanDevice.h"
+
+
+
+//GPUBuffer has to init after RHI since Logic device is created in the RHI
+struct GPUBuffer {
+
+private:
+	VkDevice& logicalDevice;
+
+public:
+	VkBuffer buffer;
+	VkDeviceMemory memory;
+	uint64_t size;
+public:
+	GPUBuffer(uint64_t p_size, VkBufferUsageFlags usage, VkMemoryPropertyFlags p_flags):
+		logicalDevice(VulkanDevice::GetVulkanDevice().logicalDevice),
+		size(p_size)
+	{
+		//Create A Buffer
+		VkBufferCreateInfo l_buffer_create_info = {};
+		l_buffer_create_info.pNext = nullptr;
+		l_buffer_create_info.pQueueFamilyIndices = &(VulkanDevice::GetVulkanDevice().queueFamilyIndices.graphics);
+		l_buffer_create_info.queueFamilyIndexCount = 1;
+		l_buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		l_buffer_create_info.size = p_size;
+		l_buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		l_buffer_create_info.usage = usage;
+		vkCreateBuffer(logicalDevice, &l_buffer_create_info, nullptr, &buffer);
+
+		//Alloc Memory for the buffer.
+		VkMemoryRequirements l_reqs;
+		vkGetBufferMemoryRequirements(logicalDevice, buffer, &l_reqs);
+		VkMemoryAllocateInfo l_allc_memory_info = {};
+		l_allc_memory_info.allocationSize = p_size;
+		l_allc_memory_info.memoryTypeIndex = VulkanDevice::GetVulkanDevice().getMemoryType(l_reqs.memoryTypeBits, p_flags);
+		vkAllocateMemory(logicalDevice, &l_allc_memory_info, nullptr, &memory);
+
+		//Bind buffer to memory.
+
+		vkBindBufferMemory(logicalDevice, buffer, memory, 0);
+
+	}
+
+};
+
+
+
+
 
 struct Buffer
 {
