@@ -8,6 +8,7 @@
 
 #include "VulkanTools.h"
 #include "VulkanInitializers.h"
+#include "KELog.h"
 
 namespace tools
 {
@@ -347,7 +348,7 @@ namespace tools
 		}
 		else
 		{
-			std::cerr << "Error: Could not open shader file \"" << fileName << "\"" << std::endl;
+			KELog::Log("Error: Could not open shader file : %s\n", fileName);
 			return VK_NULL_HANDLE;
 		}
 	}

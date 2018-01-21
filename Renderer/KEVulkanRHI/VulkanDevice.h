@@ -38,7 +38,7 @@ public:
 	std::vector<std::string> supportedExtensions;
 
 	/** @brief Default command pool for the graphics queue family index */
-	VkCommandPool commandPool = VK_NULL_HANDLE;
+	//VkCommandPool commandPool = VK_NULL_HANDLE;
 
 	/** @brief Set to true when the debug marker extension is detected */
 	bool enableDebugMarkers = false;
@@ -119,10 +119,10 @@ public:
 	*/
 	~VulkanDevice()
 	{
-		if (commandPool)
-		{
-			vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
-		}
+		//if (commandPool)
+		//{
+		//	vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+		//}
 		if (logicalDevice)
 		{
 			vkDestroyDevice(logicalDevice, nullptr);
@@ -500,7 +500,7 @@ public:
 	*
 	* @return A handle to the allocated command buffer
 	*/
-	VkCommandBuffer createCommandBuffer(VkCommandBufferLevel level, bool begin = false)
+	VkCommandBuffer createCommandBuffer(VkCommandPool commandPool,VkCommandBufferLevel level, bool begin = false)
 	{
 		VkCommandBufferAllocateInfo cmdBufAllocateInfo =  initializers::commandBufferAllocateInfo(commandPool, level, 1);
 
@@ -527,7 +527,7 @@ public:
 	* @note The queue that the command buffer is submitted to must be from the same family index as the pool it was allocated from
 	* @note Uses a fence to ensure command buffer has finished executing
 	*/
-	void flushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, bool free = true)
+	void flushCommandBuffer(VkCommandPool commandPool,VkCommandBuffer commandBuffer, VkQueue queue, bool free = true)
 	{
 		if (commandBuffer == VK_NULL_HANDLE)
 		{

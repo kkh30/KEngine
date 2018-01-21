@@ -15,7 +15,10 @@ namespace KEVulkanRHI {
 		m_swapChain(VulkanSwapChain()),
 		m_frame_rect(VkRect2D()),
 		m_currentBuffer(0),
-		m_graphics_queue(VK_NULL_HANDLE)
+		m_graphics_queue(VK_NULL_HANDLE),
+		m_graphics_pipeline(VK_NULL_HANDLE),
+		m_pipeline_layout(VK_NULL_HANDLE),
+		m_pipeline_cache(VK_NULL_HANDLE)
 	{
 		m_frame_rect.offset.x = 0;
 		m_frame_rect.offset.y = 0;
@@ -23,10 +26,216 @@ namespace KEVulkanRHI {
 		m_frame_rect.extent.height = KEWindow::GetWindow().GetHeight();
 	}
 
+
+	void  VulkanRHI::Init() {
+
+		KELog::Log("Init VulkanRHI");
+		InitInstance();
+		SetupDebug();
+		EnumeratePhaysicalDevices();
+		InitLogicDevice();
+		InitCmdQueue();
+		InitSwapChain();
+		InitGraphicsCommandPool();
+		InitDepthStencil();
+		InitRenderPass();
+		InitPipelineLayout();
+		InitPiplineState();
+		InitFrameBuffer();
+		InitDrawCmdBuffers();
+		PrepareSynchronizationPrimitives();
+		prepareVertices();
+		RecordDrawCmdBuffers();
+
+	}
+
+	void VulkanRHI::prepareVertices()
+	{
+		// A note on memory management in Vulkan in general:
+		//	This is a very complex topic and while it's fine for an example application to to small individual memory allocations that is not
+		//	what should be done a real-world application, where you should allocate large chunkgs of memory at once isntead.
+
+		// Setup vertices
+		struct Vertex {
+			float position[3];
+			float color[3];
+		};
+		
+		std::vector<Vertex> vertexBuffer =
+		{
+			{ { 1.0f,  1.0f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
+		{ { -1.0f,  1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
+		{ { 0.0f, -1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } }
+		};
+		uint32_t vertexBufferSize = static_cast<uint32_t>(vertexBuffer.size()) * sizeof(Vertex);
+
+		// Setup indices
+		std::vector<uint32_t> indexBuffer = { 0, 1, 2 };
+		indices.count = static_cast<uint32_t>(indexBuffer.size());
+		uint32_t indexBufferSize = indices.count * sizeof(uint32_t);
+
+		VkMemoryAllocateInfo memAlloc = {};
+		memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		VkMemoryRequirements memReqs;
+
+		void *data;
+
+		// Static data like vertex and index buffer should be stored on the m_vk_device.logicalDevice memory 
+		// for optimal (and fastest) access by the GPU
+		//
+		// To achieve this we use so-called "staging buffers" :
+		// - Create a buffer that's visible to the host (and can be mapped)
+		// - Copy the data to this buffer
+		// - Create another buffer that's local on the m_vk_device.logicalDevice (VRAM) with the same size
+		// - Copy the data from the host to the m_vk_device.logicalDevice using a command buffer
+		// - Delete the host visible (staging) buffer
+		// - Use the m_vk_device.logicalDevice local buffers for rendering
+
+		struct StagingBuffer {
+			VkDeviceMemory memory;
+			VkBuffer buffer;
+		};
+
+		struct {
+			StagingBuffer vertices;
+			StagingBuffer indices;
+		} stagingBuffers;
+
+		// Vertex buffer
+		VkBufferCreateInfo vertexBufferInfo = {};
+		vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		vertexBufferInfo.size = vertexBufferSize;
+		// Buffer is used as the copy source
+		vertexBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		// Create a host-visible buffer to copy the vertex data to (staging buffer)
+		VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &vertexBufferInfo, nullptr, &stagingBuffers.vertices.buffer));
+		vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, stagingBuffers.vertices.buffer, &memReqs);
+		memAlloc.allocationSize = memReqs.size;
+		// Request a host visible memory type that can be used to copy our data do
+		// Also request it to be coherent, so that writes are visible to the GPU right after unmapping the buffer
+		memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &stagingBuffers.vertices.memory));
+		// Map and copy
+		VK_CHECK_RESULT(vkMapMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.memory, 0, memAlloc.allocationSize, 0, &data));
+		memcpy(data, vertexBuffer.data(), vertexBufferSize);
+		vkUnmapMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.memory);
+		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.buffer, stagingBuffers.vertices.memory, 0));
+
+		// Create a m_vk_device.logicalDevice local buffer to which the (host local) vertex data will be copied and which will be used for rendering
+		vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &vertexBufferInfo, nullptr, &vertices.buffer));
+		vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, vertices.buffer, &memReqs);
+		memAlloc.allocationSize = memReqs.size;
+		memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &vertices.memory));
+		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, vertices.buffer, vertices.memory, 0));
+
+		// Index buffer
+		VkBufferCreateInfo indexbufferInfo = {};
+		indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		indexbufferInfo.size = indexBufferSize;
+		indexbufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		// Copy index data to a buffer visible to the host (staging buffer)
+		VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &indexbufferInfo, nullptr, &stagingBuffers.indices.buffer));
+		vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, &memReqs);
+		memAlloc.allocationSize = memReqs.size;
+		memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &stagingBuffers.indices.memory));
+		VK_CHECK_RESULT(vkMapMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory, 0, indexBufferSize, 0, &data));
+		memcpy(data, indexBuffer.data(), indexBufferSize);
+		vkUnmapMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory);
+		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, stagingBuffers.indices.memory, 0));
+
+		// Create destination buffer with m_vk_device.logicalDevice only visibility
+		indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &indexbufferInfo, nullptr, &indices.buffer));
+		vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, indices.buffer, &memReqs);
+		memAlloc.allocationSize = memReqs.size;
+		memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &indices.memory));
+		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, indices.buffer, indices.memory, 0));
+
+		VkCommandBufferBeginInfo cmdBufferBeginInfo = {};
+		cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		cmdBufferBeginInfo.pNext = nullptr;
+
+		// Buffer copies have to be submitted to a queue, so we need a command buffer for them
+		// Note: Some devices offer a dedicated transfer queue (with only the transfer bit set) that may be faster when doing lots of copies
+		VkCommandBuffer copyCmd = m_vk_device.createCommandBuffer(m_graphics_cmd_pool,VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);//getCommandBuffer(true);
+
+		// Put buffer region copies into command buffer
+		VkBufferCopy copyRegion = {};
+
+		// Vertex buffer
+		copyRegion.size = vertexBufferSize;
+		vkCmdCopyBuffer(copyCmd, stagingBuffers.vertices.buffer, vertices.buffer, 1, &copyRegion);
+		// Index buffer
+		copyRegion.size = indexBufferSize;
+		vkCmdCopyBuffer(copyCmd, stagingBuffers.indices.buffer, indices.buffer, 1, &copyRegion);
+
+		// Flushing the command buffer will also submit it to the queue and uses a fence to ensure that all commands have been executed before returning
+		//flushCommandBuffer(copyCmd);
+		m_vk_device.flushCommandBuffer(m_graphics_cmd_pool,copyCmd, m_graphics_queue, true);
+		// Destroy staging buffers
+		// Note: Staging buffer must not be deleted before the copies have been submitted and executed
+		vkDestroyBuffer(m_vk_device.logicalDevice, stagingBuffers.vertices.buffer, nullptr);
+		vkFreeMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.memory, nullptr);
+		vkDestroyBuffer(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, nullptr);
+		vkFreeMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory, nullptr);
+		
+	}
+
+
+
+
+	void VulkanRHI::InitPipelineLayout() {
+
+		VkDescriptorPoolSize l_desc_pool_size = {};
+		l_desc_pool_size.descriptorCount = 1;
+		l_desc_pool_size.type = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+		VkDescriptorPoolCreateInfo l_desc_pool_create_info = {};
+		l_desc_pool_create_info.maxSets = 1;
+		l_desc_pool_create_info.poolSizeCount = 1;
+		l_desc_pool_create_info.pPoolSizes = &l_desc_pool_size;
+		l_desc_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		vkCreateDescriptorPool(m_vk_device.logicalDevice, &l_desc_pool_create_info, nullptr, &m_desc_pool);
+
+		VkDescriptorSetLayoutBinding l_binding0 = {};
+		l_binding0.binding = 0;
+		l_binding0.descriptorCount = 1;
+		l_binding0.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		l_binding0.pImmutableSamplers = nullptr;
+		l_binding0.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		VkDescriptorSetLayoutCreateInfo l_desc_set_layout_create_info = {};
+		l_desc_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		l_desc_set_layout_create_info.bindingCount = 1;
+		l_desc_set_layout_create_info.pBindings = &l_binding0;
+		vkCreateDescriptorSetLayout(m_vk_device.logicalDevice, &l_desc_set_layout_create_info, nullptr, &m_desc_set_layout);
+
+		VkDescriptorSetAllocateInfo l_desc_set_layout = {};
+		l_desc_set_layout.descriptorPool = m_desc_pool;
+		l_desc_set_layout.descriptorSetCount = 1;
+		l_desc_set_layout.pSetLayouts = &m_desc_set_layout;
+		l_desc_set_layout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+
+		VkPipelineLayoutCreateInfo l_pipeline_layout_create_info = {};
+		l_pipeline_layout_create_info.pPushConstantRanges = nullptr;
+		l_pipeline_layout_create_info.pSetLayouts = &m_desc_set_layout;
+		l_pipeline_layout_create_info.setLayoutCount = 1;
+		l_pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		vkCreatePipelineLayout(m_vk_device.logicalDevice, &l_pipeline_layout_create_info, nullptr, &m_pipeline_layout);
+
+	}
+
+
+
 	void VulkanRHI::RecordDrawCmdBuffers() {
 		VkCommandBufferBeginInfo cmdBufInfo = {};
 		cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		cmdBufInfo.pNext = nullptr;
+		//cmdBufInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 
 		// Set clear values for all framebuffer attachments with loadOp set to clear
 		// We use two attachments (color and depth) that are cleared at the start of the subpass and as such we need to set clear values for both
@@ -55,8 +264,8 @@ namespace KEVulkanRHI {
 
 			// Update dynamic viewport state
 			VkViewport viewport = {};
-			viewport.height = (float)m_frame_rect.extent.width;
-			viewport.width  = (float)m_frame_rect.extent.height;
+			viewport.width = (float)m_frame_rect.extent.width;
+			viewport.height = (float)m_frame_rect.extent.height;
 			viewport.minDepth = (float) 0.0f;
 			viewport.maxDepth = (float) 1.0f;
 			vkCmdSetViewport(m_draw_cmd_buffers[i], 0, 1, &viewport);
@@ -69,31 +278,212 @@ namespace KEVulkanRHI {
 			scissor.offset.y = 0;
 			vkCmdSetScissor(m_draw_cmd_buffers[i], 0, 1, &scissor);
 
-			//// Bind descriptor sets describing shader binding points
-			//vkCmdBindDescriptorSets(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-			//
-			//// Bind the rendering pipeline
-			//// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
-			//vkCmdBindPipeline(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-			//
-			//// Bind triangle vertex buffer (contains position and colors)
-			//VkDeviceSize offsets[1] = { 0 };
-			//vkCmdBindVertexBuffers(m_draw_cmd_buffers[i], 0, 1, &vertices.buffer, offsets);
-			//
-			//// Bind triangle index buffer
-			//vkCmdBindIndexBuffer(m_draw_cmd_buffers[i], indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-			//
-			//// Draw indexed triangle
-			//vkCmdDrawIndexed(m_draw_cmd_buffers[i], indices.count, 1, 0, 0, 1);
-
+			// Bind descriptor sets describing shader binding points
+			//vkCmdBindDescriptorSets(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, nullptr, 0, 1, &descriptorSet, 0, nullptr);
+			
+			// Bind the rendering pipeline
+			// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
+			vkCmdBindPipeline(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline);
+			
+			// Bind triangle vertex buffer (contains position and colors)
+			VkDeviceSize offsets[1] = { 0 };
+			vkCmdBindVertexBuffers(m_draw_cmd_buffers[i], 0, 1, &vertices.buffer, offsets);
+			
+			// Bind triangle index buffer
+			vkCmdBindIndexBuffer(m_draw_cmd_buffers[i], indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+			
+			// Draw indexed triangle
+			vkCmdDrawIndexed(m_draw_cmd_buffers[i], indices.count, 1, 0, 0, 1);
+			
 			vkCmdEndRenderPass(m_draw_cmd_buffers[i]);
 
-			// Ending the render pass will add an implicit barrier transitioning the frame buffer color attachment to 
-			// VK_IMAGE_LAYOUT_PRESENT_SRC_KHR for presenting it to the windowing system
+			//Ending the render pass will add an implicit barrier transitioning the frame buffer color attachment to 
+			//VK_IMAGE_LAYOUT_PRESENT_SRC_KHR for presenting it to the windowing system
 
 			VK_CHECK_RESULT(vkEndCommandBuffer(m_draw_cmd_buffers[i]));
 		}
 	}
+
+	void VulkanRHI::InitPiplineState() {
+		VkGraphicsPipelineCreateInfo l_pipeline_create_info = {};
+		l_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
+		l_pipeline_create_info.layout = m_pipeline_layout;
+		l_pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+
+		//ColorBlendState
+		//{
+			VkPipelineColorBlendAttachmentState blendAttachmentState[1] = {};
+			blendAttachmentState[0].colorWriteMask = 0xf;
+			blendAttachmentState[0].blendEnable = VK_FALSE;
+			VkPipelineColorBlendStateCreateInfo colorBlendState = {};
+			colorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+			colorBlendState.attachmentCount = 1;
+			colorBlendState.pAttachments = blendAttachmentState;
+			l_pipeline_create_info.pColorBlendState = &colorBlendState;
+		//}
+
+		//Viewport State
+		//{
+			VkPipelineViewportStateCreateInfo viewportState = {};
+			viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+			viewportState.viewportCount = 1;
+			viewportState.scissorCount = 1;
+			l_pipeline_create_info.pViewportState = &viewportState;
+		//}
+		
+		// Input assembly state describes how primitives are assembled
+		// This pipeline will assemble vertex data as a triangle lists (though we only use one triangle)
+		//{
+			VkPipelineInputAssemblyStateCreateInfo inputAssemblyState = {};
+			inputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+			inputAssemblyState.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+			l_pipeline_create_info.pInputAssemblyState = &inputAssemblyState;
+
+		//}
+		// Rasterization state
+		//{
+			VkPipelineRasterizationStateCreateInfo rasterizationState = {};
+			rasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+			rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
+			rasterizationState.cullMode = VK_CULL_MODE_NONE;
+			rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+			rasterizationState.depthClampEnable = VK_FALSE;
+			rasterizationState.rasterizerDiscardEnable = VK_FALSE;
+			rasterizationState.depthBiasEnable = VK_FALSE;
+			rasterizationState.lineWidth = 1.0f;
+			l_pipeline_create_info.pRasterizationState = &rasterizationState;
+
+		//}
+		// Dynamic states
+		//{
+			std::vector<VkDynamicState> dynamicStateEnables;
+			dynamicStateEnables.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+			dynamicStateEnables.push_back(VK_DYNAMIC_STATE_SCISSOR);
+			VkPipelineDynamicStateCreateInfo dynamicState = {};
+			dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+			dynamicState.pDynamicStates = dynamicStateEnables.data();
+			dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStateEnables.size());
+			l_pipeline_create_info.pDynamicState = &dynamicState;
+		//}
+
+		
+
+		// Depth and Stencil
+		//{
+			VkPipelineDepthStencilStateCreateInfo depthStencilState = {};
+			depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+			depthStencilState.depthTestEnable = VK_TRUE;
+			depthStencilState.depthWriteEnable = VK_TRUE;
+			depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+			depthStencilState.depthBoundsTestEnable = VK_FALSE;
+			depthStencilState.back.failOp = VK_STENCIL_OP_KEEP;
+			depthStencilState.back.passOp = VK_STENCIL_OP_KEEP;
+			depthStencilState.back.compareOp = VK_COMPARE_OP_ALWAYS;
+			depthStencilState.stencilTestEnable = VK_FALSE;
+			depthStencilState.front = depthStencilState.back;
+			l_pipeline_create_info.pDepthStencilState = &depthStencilState;
+
+		//}
+		
+
+		// Multi sampling state
+		//{
+			VkPipelineMultisampleStateCreateInfo multisampleState = {};
+			multisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+			multisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+			multisampleState.pSampleMask = nullptr;
+			l_pipeline_create_info.pMultisampleState = &multisampleState;
+
+		//}
+		
+
+		// Vertex input descriptions 
+		//{
+			struct Vertex {
+				float position[3];
+				float color[3];
+			};
+
+			// Vertex input binding
+			// This example uses a single vertex input binding at binding point 0 (see vkCmdBindVertexBuffers)
+			VkVertexInputBindingDescription vertexInputBinding = {};
+			vertexInputBinding.binding = 0;
+			vertexInputBinding.stride = sizeof(Vertex);
+			vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+			// Inpute attribute bindings describe shader attribute locations and memory layouts
+			std::array<VkVertexInputAttributeDescription, 2> vertexInputAttributs;
+			// These match the following shader layout (see triangle.vert):
+			//	layout (location = 0) in vec3 inPos;
+			//	layout (location = 1) in vec3 inColor;
+			// Attribute location 0: Position
+			vertexInputAttributs[0].binding = 0;
+			vertexInputAttributs[0].location = 0;
+			// Position attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
+			vertexInputAttributs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+			vertexInputAttributs[0].offset = offsetof(Vertex, position);
+			// Attribute location 1: Color
+			vertexInputAttributs[1].binding = 0;
+			vertexInputAttributs[1].location = 1;
+			// Color attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
+			vertexInputAttributs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+			vertexInputAttributs[1].offset = offsetof(Vertex, color);
+
+			// Vertex input state used for pipeline creation
+			VkPipelineVertexInputStateCreateInfo vertexInputState = {};
+			vertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+			vertexInputState.vertexBindingDescriptionCount = 1;
+			vertexInputState.pVertexBindingDescriptions = &vertexInputBinding;
+			vertexInputState.vertexAttributeDescriptionCount = 2;
+			vertexInputState.pVertexAttributeDescriptions = vertexInputAttributs.data();
+			l_pipeline_create_info.pVertexInputState = &vertexInputState;
+
+
+		//}		
+
+		// Shaders
+		//{
+			std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{};
+
+			// Vertex shader
+			shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+			// Set pipeline stage for this shader
+			shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+			// Load binary SPIR-V shader
+			shaderStages[0].module = tools::loadShader("D:/Dev/KEngine/shaders/triangle.vert.spv", m_vk_device.logicalDevice);
+			// Main entry point for the shader
+			shaderStages[0].pName = "main";
+			assert(shaderStages[0].module != VK_NULL_HANDLE);
+
+			// Fragment shader
+			shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+			// Set pipeline stage for this shader
+			shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+			// Load binary SPIR-V shader
+			shaderStages[1].module = tools::loadShader("D:/Dev/KEngine/shaders/triangle.frag.spv", m_vk_device.logicalDevice);
+			// Main entry point for the shader
+			shaderStages[1].pName = "main";
+			assert(shaderStages[1].module != VK_NULL_HANDLE);
+
+			// Set pipeline shader stage info
+			l_pipeline_create_info.stageCount = static_cast<uint32_t>(shaderStages.size());
+			l_pipeline_create_info.pStages = shaderStages.data();
+		//}
+		
+		VkPipelineCacheCreateInfo l_pipeline_cache_create_info = {};
+		l_pipeline_cache_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+		vkCreatePipelineCache(m_vk_device.logicalDevice, &l_pipeline_cache_create_info, nullptr, &m_pipeline_cache);
+		
+		l_pipeline_create_info.renderPass = m_renderPass;
+
+
+
+
+		// Create rendering pipeline using the specified states
+		VK_CHECK_RESULT(vkCreateGraphicsPipelines(m_vk_device.logicalDevice, m_pipeline_cache, 1, &l_pipeline_create_info, nullptr, &m_graphics_pipeline));
+
+	}
+
 
 
 	VulkanRHI::~VulkanRHI()
@@ -125,6 +515,7 @@ namespace KEVulkanRHI {
 
 																						// Submit to the graphics queue passing a wait fence
 		VK_CHECK_RESULT(vkQueueSubmit(m_graphics_queue, 1, &submitInfo, m_waitFences[m_currentBuffer]));
+		//VK_CHECK_RESULT(vkQueueSubmit(m_graphics_queue, 1, &submitInfo, nullptr));
 
 		// Present the current buffer to the swap chain
 		// Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain presentation
@@ -132,24 +523,6 @@ namespace KEVulkanRHI {
 		VK_CHECK_RESULT(m_swapChain.queuePresent(m_graphics_queue, m_currentBuffer, m_semaphores.renderCompleteSemaphore));
 	}
 
-	void  VulkanRHI::Init() {
-
-		KELog::Log("Init VulkanRHI");
-		InitInstance();
-		SetupDebug();
-		EnumeratePhaysicalDevices();
-		InitLogicDevice();
-		InitCmdQueue();
-		InitSwapChain();
-		InitGraphicsCommandPool();
-		InitDepthStencil();
-		InitRenderPass();
-		InitFrameBuffer();
-		InitDrawCmdBuffers();
-		PrepareSynchronizationPrimitives();
-		RecordDrawCmdBuffers();
-
-	}
 
 	void VulkanRHI::PrepareSynchronizationPrimitives()
 	{

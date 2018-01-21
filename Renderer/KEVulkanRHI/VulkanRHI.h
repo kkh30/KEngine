@@ -52,6 +52,25 @@ namespace KEVulkanRHI {
 		std::vector<VkFence> m_waitFences;
 		uint32_t m_currentBuffer;
 		VkQueue m_graphics_queue;
+
+		VkPipeline m_graphics_pipeline;
+		VkDescriptorPool m_desc_pool;
+		VkPipelineLayout m_pipeline_layout;
+		VkPipelineCache m_pipeline_cache;
+		VkDescriptorSetLayout m_desc_set_layout;
+		// Vertex buffer and attributes
+		struct {
+			VkDeviceMemory memory;															// Handle to the device memory for this buffer
+			VkBuffer buffer;																// Handle to the Vulkan buffer object that the memory is bound to
+		} vertices;
+
+		// Index buffer
+		struct
+		{
+			VkDeviceMemory memory;
+			VkBuffer buffer;
+			uint32_t count;
+		} indices;
 	private:
 		void ClearScreen();
 
@@ -67,9 +86,13 @@ namespace KEVulkanRHI {
 		void InitFrameBuffer();
 		void InitCmdQueue();
 		void InitRenderPass();
+		void InitPiplineState();
 		void InitDrawCmdBuffers();
 		void RecordDrawCmdBuffers();
 		void PrepareSynchronizationPrimitives();
+		void InitPipelineLayout();
+		void prepareVertices();
+
 		int createVulkanSurface(VkInstance instance, SDL_Window* window, VkSurfaceKHR* surface);
 		std::vector<const char*> getAvailableWSIExtensions();
 
