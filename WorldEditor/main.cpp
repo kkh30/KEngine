@@ -3,18 +3,13 @@
 #include "KEVulkanRHI\VulkanRHI.h"
 #include "KELog.h"
 #include "KEComponent.h"
+#include "KERenderComponent.h"
 
 int main() {
 
 
 	auto& window = KEWindow::GetWindow();
 	window.CreateKEWindow(2560,100,800,600,SDL_WindowFlags::SDL_WINDOW_VULKAN);
-
-	auto renderer = KEVulkanRHI::VulkanRHI();
-	renderer.Init();
-
-	window.SetRendererFunc(std::bind(&KEVulkanRHI::VulkanRHI::Update,renderer));
-
 	auto& entity_manager = EntityManager::GetEntityManager();
 
 	auto entity0 = entity_manager.CreateEntity();
@@ -33,12 +28,30 @@ int main() {
 	auto entity3 = entity_manager.CreateEntity();
 	KELog::Log("Create Entity %d\n", entity3);
 
-	auto component_manager = ComponentManager<float>();
+	auto component_system = System<float>();
 
-	component_manager.AddEntityComponent<float>(entity0,1.0);
+	component_system.AddEntityComponent<float>(entity0, 1.0);
+
+
+	auto value = component_system.GetEntityComponent<float>(entity0);
+
+	auto render_system = System<KRenderComponent>();
+	// Setup vertices
+
+	std::vector<KEVertex> vertexBuffer =
+	{
+		{ { 1.0f,  1.0f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
+	{ { -1.0f,  1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
+	{ { 0.0f, -1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } }
+	};
+	render_system.AddEntityComponent(entity0, vertexBuffer);
+
+	auto renderer = KEVulkanRHI::VulkanRHI();
+	renderer.Init();
+
+	window.SetRendererFunc(std::bind(&KEVulkanRHI::VulkanRHI::Update,renderer));
+
 	
-
-	auto value = component_manager.GetEntityComponent<float>(entity0);
 
 
 	window.Show();

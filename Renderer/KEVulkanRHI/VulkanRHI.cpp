@@ -51,45 +51,14 @@ namespace KEVulkanRHI {
 
 	void VulkanRHI::prepareVertices()
 	{
-		// A note on memory management in Vulkan in general:
-		//	This is a very complex topic and while it's fine for an example application to to small individual memory allocations that is not
-		//	what should be done a real-world application, where you should allocate large chunkgs of memory at once isntead.
 
-		// Setup vertices
-		struct Vertex {
-			float position[3];
-			float color[3];
-		};
-		
-		std::vector<Vertex> vertexBuffer =
-		{
-			{ { 1.0f,  1.0f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
-		{ { -1.0f,  1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
-		{ { 0.0f, -1.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } }
-		};
-		uint32_t vertexBufferSize = static_cast<uint32_t>(vertexBuffer.size()) * sizeof(Vertex);
-
-		// Setup indices
-		std::vector<uint32_t> indexBuffer = { 0, 1, 2 };
-		indices.count = static_cast<uint32_t>(indexBuffer.size());
-		uint32_t indexBufferSize = indices.count * sizeof(uint32_t);
+		uint32_t vertexBufferSize = KEMemorySystem::GetMemorySystem().GetMemorySize();
 
 		VkMemoryAllocateInfo memAlloc = {};
 		memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		VkMemoryRequirements memReqs;
 
 		void *data;
-
-		// Static data like vertex and index buffer should be stored on the m_vk_device.logicalDevice memory 
-		// for optimal (and fastest) access by the GPU
-		//
-		// To achieve this we use so-called "staging buffers" :
-		// - Create a buffer that's visible to the host (and can be mapped)
-		// - Copy the data to this buffer
-		// - Create another buffer that's local on the m_vk_device.logicalDevice (VRAM) with the same size
-		// - Copy the data from the host to the m_vk_device.logicalDevice using a command buffer
-		// - Delete the host visible (staging) buffer
-		// - Use the m_vk_device.logicalDevice local buffers for rendering
 
 		struct StagingBuffer {
 			VkDeviceMemory memory;
@@ -98,7 +67,7 @@ namespace KEVulkanRHI {
 
 		struct {
 			StagingBuffer vertices;
-			StagingBuffer indices;
+			//StagingBuffer indices;
 		} stagingBuffers;
 
 		// Vertex buffer
@@ -117,7 +86,7 @@ namespace KEVulkanRHI {
 		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &stagingBuffers.vertices.memory));
 		// Map and copy
 		VK_CHECK_RESULT(vkMapMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.memory, 0, memAlloc.allocationSize, 0, &data));
-		memcpy(data, vertexBuffer.data(), vertexBufferSize);
+		memcpy(data, KEMemorySystem::GetMemorySystem().GetDataPtr(), vertexBufferSize);
 		vkUnmapMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.memory);
 		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.buffer, stagingBuffers.vertices.memory, 0));
 
@@ -131,29 +100,29 @@ namespace KEVulkanRHI {
 		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, vertices.buffer, vertices.memory, 0));
 
 		// Index buffer
-		VkBufferCreateInfo indexbufferInfo = {};
-		indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		indexbufferInfo.size = indexBufferSize;
-		indexbufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		// Copy index data to a buffer visible to the host (staging buffer)
-		VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &indexbufferInfo, nullptr, &stagingBuffers.indices.buffer));
-		vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, &memReqs);
-		memAlloc.allocationSize = memReqs.size;
-		memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &stagingBuffers.indices.memory));
-		VK_CHECK_RESULT(vkMapMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory, 0, indexBufferSize, 0, &data));
-		memcpy(data, indexBuffer.data(), indexBufferSize);
-		vkUnmapMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory);
-		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, stagingBuffers.indices.memory, 0));
-
-		// Create destination buffer with m_vk_device.logicalDevice only visibility
-		indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &indexbufferInfo, nullptr, &indices.buffer));
-		vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, indices.buffer, &memReqs);
-		memAlloc.allocationSize = memReqs.size;
-		memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &indices.memory));
-		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, indices.buffer, indices.memory, 0));
+		//VkBufferCreateInfo indexbufferInfo = {};
+		//indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		//indexbufferInfo.size = indexBufferSize;
+		//indexbufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		//// Copy index data to a buffer visible to the host (staging buffer)
+		//VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &indexbufferInfo, nullptr, &stagingBuffers.indices.buffer));
+		//vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, &memReqs);
+		//memAlloc.allocationSize = memReqs.size;
+		//memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		//VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &stagingBuffers.indices.memory));
+		//VK_CHECK_RESULT(vkMapMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory, 0, indexBufferSize, 0, &data));
+		//memcpy(data, indexBuffer.data(), indexBufferSize);
+		//vkUnmapMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory);
+		//VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, stagingBuffers.indices.memory, 0));
+		//
+		//// Create destination buffer with m_vk_device.logicalDevice only visibility
+		//indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		//VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &indexbufferInfo, nullptr, &indices.buffer));
+		//vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, indices.buffer, &memReqs);
+		//memAlloc.allocationSize = memReqs.size;
+		//memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		//VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &indices.memory));
+		//VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, indices.buffer, indices.memory, 0));
 
 		VkCommandBufferBeginInfo cmdBufferBeginInfo = {};
 		cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -170,8 +139,8 @@ namespace KEVulkanRHI {
 		copyRegion.size = vertexBufferSize;
 		vkCmdCopyBuffer(copyCmd, stagingBuffers.vertices.buffer, vertices.buffer, 1, &copyRegion);
 		// Index buffer
-		copyRegion.size = indexBufferSize;
-		vkCmdCopyBuffer(copyCmd, stagingBuffers.indices.buffer, indices.buffer, 1, &copyRegion);
+		//copyRegion.size = indexBufferSize;
+		//vkCmdCopyBuffer(copyCmd, stagingBuffers.indices.buffer, indices.buffer, 1, &copyRegion);
 
 		// Flushing the command buffer will also submit it to the queue and uses a fence to ensure that all commands have been executed before returning
 		//flushCommandBuffer(copyCmd);
@@ -180,8 +149,8 @@ namespace KEVulkanRHI {
 		// Note: Staging buffer must not be deleted before the copies have been submitted and executed
 		vkDestroyBuffer(m_vk_device.logicalDevice, stagingBuffers.vertices.buffer, nullptr);
 		vkFreeMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.memory, nullptr);
-		vkDestroyBuffer(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, nullptr);
-		vkFreeMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory, nullptr);
+		//vkDestroyBuffer(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, nullptr);
+		//vkFreeMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory, nullptr);
 		
 	}
 
@@ -290,11 +259,11 @@ namespace KEVulkanRHI {
 			vkCmdBindVertexBuffers(m_draw_cmd_buffers[i], 0, 1, &vertices.buffer, offsets);
 			
 			// Bind triangle index buffer
-			vkCmdBindIndexBuffer(m_draw_cmd_buffers[i], indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+			//vkCmdBindIndexBuffer(m_draw_cmd_buffers[i], indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 			
 			// Draw indexed triangle
-			vkCmdDrawIndexed(m_draw_cmd_buffers[i], indices.count, 1, 0, 0, 1);
-			
+			//vkCmdDrawIndexed(m_draw_cmd_buffers[i], indices.count, 1, 0, 0, 1);
+			vkCmdDraw(m_draw_cmd_buffers[i], 3, 1, 0, 0);
 			vkCmdEndRenderPass(m_draw_cmd_buffers[i]);
 
 			//Ending the render pass will add an implicit barrier transitioning the frame buffer color attachment to 
@@ -395,20 +364,12 @@ namespace KEVulkanRHI {
 			l_pipeline_create_info.pMultisampleState = &multisampleState;
 
 		//}
-		
-
-		// Vertex input descriptions 
-		//{
-			struct Vertex {
-				float position[3];
-				float color[3];
-			};
 
 			// Vertex input binding
 			// This example uses a single vertex input binding at binding point 0 (see vkCmdBindVertexBuffers)
 			VkVertexInputBindingDescription vertexInputBinding = {};
 			vertexInputBinding.binding = 0;
-			vertexInputBinding.stride = sizeof(Vertex);
+			vertexInputBinding.stride = sizeof(KEVertex);
 			vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 			// Inpute attribute bindings describe shader attribute locations and memory layouts
@@ -421,13 +382,13 @@ namespace KEVulkanRHI {
 			vertexInputAttributs[0].location = 0;
 			// Position attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
 			vertexInputAttributs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-			vertexInputAttributs[0].offset = offsetof(Vertex, position);
+			vertexInputAttributs[0].offset = offsetof(KEVertex, position);
 			// Attribute location 1: Color
 			vertexInputAttributs[1].binding = 0;
 			vertexInputAttributs[1].location = 1;
 			// Color attribute is three 32 bit signed (SFLOAT) floats (R32 G32 B32)
 			vertexInputAttributs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-			vertexInputAttributs[1].offset = offsetof(Vertex, color);
+			vertexInputAttributs[1].offset = offsetof(KEVertex, color);
 
 			// Vertex input state used for pipeline creation
 			VkPipelineVertexInputStateCreateInfo vertexInputState = {};

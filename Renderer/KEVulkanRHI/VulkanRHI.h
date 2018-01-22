@@ -2,6 +2,8 @@
 #define __VULKAN_RHI_H__
 
 #define VK_USE_PLATFORM_WIN32_KHR
+#include "KEMemorySystem.h"
+#include "KERenderComponent.h"
 #include "KEVulkanRHI\vulkan\vulkan.h"
 #include "RHI.h"
 #include "VulkanTools.h"
@@ -65,12 +67,12 @@ namespace KEVulkanRHI {
 		} vertices;
 
 		// Index buffer
-		struct
-		{
-			VkDeviceMemory memory;
-			VkBuffer buffer;
-			uint32_t count;
-		} indices;
+		//struct
+		//{
+		//	VkDeviceMemory memory;
+		//	VkBuffer buffer;
+		//	uint32_t count;
+		//} indices;
 	private:
 		void ClearScreen();
 

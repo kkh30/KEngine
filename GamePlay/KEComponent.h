@@ -3,20 +3,21 @@
 #include <array>
 #include <unordered_map>
 #include "KEEntity.h"
+#include "KERenderComponent.h"
 
 using ComponentID = uint32_t;
 
 
 
 template<typename T>
-class ComponentManager
+class System
 {
 public:
-	ComponentManager() {
+	System() {
 	
 	};
 
-	virtual ~ComponentManager() {
+	virtual ~System() {
 	
 	};
 
@@ -35,5 +36,7 @@ private:
 	std::unordered_map<Entity, T> m_components;
 
 };
+
+using RenderSystem = System<KRenderComponent>;
 
 #endif // !_COMPONENT_H__
