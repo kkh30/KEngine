@@ -266,7 +266,7 @@ namespace KEVulkanRHI {
 			//vkCmdDraw(m_draw_cmd_buffers[i], 12, 1, 0, 0);
 
 			auto& all_entites = EntityManager::GetEntityManager().GetAllEntities();
-			System<KRenderComponent>& render_component_system = System<KRenderComponent>::GetSystem();
+			System<KERenderComponent>& render_component_system = System<KERenderComponent>::GetSystem();
 			for (auto& entity : all_entites) {
 				auto& render_component = render_component_system.GetEntityComponent(entity);
 				vkCmdBindVertexBuffers(m_draw_cmd_buffers[i], 0, 1, &vertices.buffer, &render_component.offset);

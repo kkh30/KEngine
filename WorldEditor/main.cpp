@@ -2,7 +2,7 @@
 #include "KEWindow.h"
 #include "KEVulkanRHI\VulkanRHI.h"
 #include "KELog.h"
-#include "KEComponent.h"
+#include "KESystem.h"
 #include "KERenderComponent.h"
 
 int main() {
@@ -35,29 +35,29 @@ int main() {
 
 	auto value = component_system.GetEntityComponent(entity0);
 
-	auto& render_system = System<KRenderComponent>::GetSystem();
+	auto& render_system = System<KERenderComponent>::GetSystem();
 	// Setup vertices
 
-	render_system.AddEntityComponent(entity0, KRenderComponent({
+	render_system.AddEntityComponent(entity0, KERenderComponent({
 		{ { 1.0f,  1.0f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
 		{ { -1.0f,  1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
 		{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } }
 		}));
 
-	render_system.AddEntityComponent(entity1, KRenderComponent({
+	render_system.AddEntityComponent(entity1, KERenderComponent({
 		{ { 1.0f,  -1.0f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
 		{ { -1.0f,  -1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
 		{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } }
 		}));
 
-	render_system.AddEntityComponent(entity2, KRenderComponent({
+	render_system.AddEntityComponent(entity2, KERenderComponent({
 		{ { 1.0f,  1.0f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
 		{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
 		{ { 1.0f,  -1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
 		}));
 
 	
-	render_system.AddEntityComponent(entity3, KRenderComponent({
+	render_system.AddEntityComponent(entity3, KERenderComponent({
 		{ { -1.0f,  -1.0f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
 		{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
 		{ { -1.0f,  1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },

@@ -50,6 +50,6 @@ private:
 
 };
 
-using RenderSystem = System<KRenderComponent>;
+using RenderSystem = System<KERenderComponent>;
 
 #endif // !_COMPONENT_H__

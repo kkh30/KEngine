@@ -9,16 +9,16 @@ struct KEVertex
 	float color[3];
 };
 
-struct KRenderComponent
+struct KERenderComponent
 {
 	uint64_t offset;
 	uint64_t size;
 
-	KRenderComponent(std::vector<KEVertex>&& p_vertices) :size(sizeof(KEVertex) * p_vertices.size()){
+	KERenderComponent(std::vector<KEVertex>&& p_vertices) :size(sizeof(KEVertex) * p_vertices.size()){
 		auto& l_memory_system = KEMemorySystem::GetMemorySystem();
 		offset = l_memory_system.UploadToVRAM(p_vertices.data(), size);
 	}
-	KRenderComponent() {
+	KERenderComponent() {
 	}
 };
 
