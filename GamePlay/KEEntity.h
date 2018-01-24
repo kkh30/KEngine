@@ -32,14 +32,22 @@ public:
 		m_entites.erase(e);
 	}
 
+	__forceinline std::unordered_set<Entity>& GetAllEntities() {
+		return m_entites;
+	}
 
+	~EntityManager() {
+	
+	}
 
-
-private:
-	EntityManager();
-	~EntityManager();
 	EntityManager(const EntityManager&) = delete;
 	EntityManager& operator =(const EntityManager&) = delete;
+
+private:
+	EntityManager():m_newbee(0) {
+	
+	};
+	
 
 	
 
@@ -48,13 +56,5 @@ private:
 	Entity m_newbee;
 };
 
-
-
-EntityManager::EntityManager() :m_newbee(0){
-
-};
-EntityManager::~EntityManager() {
-	
-};
 
 #endif

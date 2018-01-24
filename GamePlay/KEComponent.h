@@ -12,21 +12,34 @@ using ComponentID = uint32_t;
 template<typename T>
 class System
 {
-public:
+	
+	
+
+private:
 	System() {
 	
 	};
+
+public:
+
+	static System& GetSystem() {
+		static System l_system;
+		return l_system;
+	}
+
+	System(const System&) = delete;
+	System operator=(const System&) = delete;
 
 	virtual ~System() {
 	
 	};
 
-	template<typename T>
+	//template<typename T>
 	__forceinline void AddEntityComponent(Entity e,T p_t) {
 		m_components.insert(std::pair<Entity, T>(e,p_t));
 	};
 
-	template<typename T>
+	//template<typename T>
 	__forceinline T GetEntityComponent(Entity e) {
 		return m_components[e];
 	};

@@ -3,6 +3,8 @@
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #include "KEMemorySystem.h"
+#include "KEEntity.h"
+#include "KEComponent.h"
 #include "KERenderComponent.h"
 #include "KEVulkanRHI\vulkan\vulkan.h"
 #include "RHI.h"

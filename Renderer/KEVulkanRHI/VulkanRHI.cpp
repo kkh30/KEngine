@@ -255,16 +255,26 @@ namespace KEVulkanRHI {
 			vkCmdBindPipeline(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline);
 			
 			// Bind triangle vertex buffer (contains position and colors)
-			VkDeviceSize offsets[1] = { 0 };
-			vkCmdBindVertexBuffers(m_draw_cmd_buffers[i], 0, 1, &vertices.buffer, offsets);
-			
-			// Bind triangle index buffer
-			//vkCmdBindIndexBuffer(m_draw_cmd_buffers[i], indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-			
-			// Draw indexed triangle
-			//vkCmdDrawIndexed(m_draw_cmd_buffers[i], indices.count, 1, 0, 0, 1);
-			vkCmdDraw(m_draw_cmd_buffers[i], 3, 1, 0, 0);
+			//VkDeviceSize offsets[1] = { 0 };
+			//vkCmdBindVertexBuffers(m_draw_cmd_buffers[i], 0, 1, &vertices.buffer, offsets);
+			//
+			//// Bind triangle index buffer
+			////vkCmdBindIndexBuffer(m_draw_cmd_buffers[i], indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+			//
+			//// Draw indexed triangle
+			////vkCmdDrawIndexed(m_draw_cmd_buffers[i], indices.count, 1, 0, 0, 1);
+			//vkCmdDraw(m_draw_cmd_buffers[i], 12, 1, 0, 0);
+
+			auto& all_entites = EntityManager::GetEntityManager().GetAllEntities();
+			System<KRenderComponent>& render_component_system = System<KRenderComponent>::GetSystem();
+			for (auto& entity : all_entites) {
+				auto& render_component = render_component_system.GetEntityComponent(entity);
+				vkCmdBindVertexBuffers(m_draw_cmd_buffers[i], 0, 1, &vertices.buffer, &render_component.offset);
+				vkCmdDraw(m_draw_cmd_buffers[i], 3, 1, 0, 0);
+			}
+
 			vkCmdEndRenderPass(m_draw_cmd_buffers[i]);
+
 
 			//Ending the render pass will add an implicit barrier transitioning the frame buffer color attachment to 
 			//VK_IMAGE_LAYOUT_PRESENT_SRC_KHR for presenting it to the windowing system

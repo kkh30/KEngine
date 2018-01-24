@@ -17,6 +17,7 @@ public:
 	INLINE uint64_t GetMemorySize() { return m_size; }
 private:
 	void* m_data;
+	
 	KEMemorySystem();
 	uint64_t m_size;
 	uint64_t m_offset;

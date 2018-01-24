@@ -18,6 +18,8 @@ struct KRenderComponent
 		auto& l_memory_system = KEMemorySystem::GetMemorySystem();
 		offset = l_memory_system.UploadToVRAM(p_vertices.data(), size);
 	}
+	KRenderComponent() {
+	}
 };
 
 

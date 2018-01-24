@@ -9,8 +9,9 @@
 #include <vector>
 #include <array>
 
+
 namespace KEConstant {
-	const unsigned VRAM_SIZE = 100000000;
+	const uint64_t VRAM_SIZE = 100000000;
 
 }
 
