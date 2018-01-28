@@ -16,11 +16,12 @@ public:
 	}
 
 	__forceinline Entity CreateEntity() {
-		while (!IsEntityAlive(m_newbee))
+		while (IsEntityAlive(m_newbee))
 		{
-			m_entites.insert(m_newbee);
-			return m_newbee++;
+			m_newbee++;
 		}
+		m_entites.insert(m_newbee);
+		return m_newbee;
 		
 	}
 

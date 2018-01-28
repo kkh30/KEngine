@@ -66,15 +66,15 @@ namespace KEVulkanRHI {
 		struct {
 			VkDeviceMemory memory;															// Handle to the device memory for this buffer
 			VkBuffer buffer;																// Handle to the Vulkan buffer object that the memory is bound to
-		} vertices;
+		} m_vertex_index_buffer;
 
 		// Index buffer
-		//struct
-		//{
-		//	VkDeviceMemory memory;
-		//	VkBuffer buffer;
-		//	uint32_t count;
-		//} indices;
+		struct
+		{
+			VkDeviceMemory memory;
+			VkBuffer buffer;
+			uint32_t count;
+		} indices;
 	private:
 		void ClearScreen();
 
@@ -96,6 +96,7 @@ namespace KEVulkanRHI {
 		void PrepareSynchronizationPrimitives();
 		void InitPipelineLayout();
 		void prepareVertices();
+		void DrawGameScene(VkCommandBuffer p_draw_command_buffer);
 
 		int createVulkanSurface(VkInstance instance, SDL_Window* window, VkSurfaceKHR* surface);
 		std::vector<const char*> getAvailableWSIExtensions();

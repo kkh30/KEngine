@@ -11,7 +11,7 @@
 
 
 namespace KEConstant {
-	const uint64_t VRAM_SIZE = 100000000;
+	const uint64_t VRAM_SIZE = 10000000;
 
 }
 

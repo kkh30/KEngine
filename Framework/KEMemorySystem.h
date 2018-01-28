@@ -12,15 +12,23 @@ public:
 	~KEMemorySystem();
 	KEMemorySystem(const KEMemorySystem&) = delete;
 	KEMemorySystem& operator =(const KEMemorySystem&) = delete;
-	uint64_t UploadToVRAM(void* src, uint64_t size);
-	INLINE void* GetDataPtr() { return m_data; }
-	INLINE uint64_t GetMemorySize() { return m_size; }
+	uint64_t UploadVertexDataToVRAM(void* src, uint64_t size);
+	uint64_t UploadIndexDataToVRAM(void* src, uint64_t size);
+
+	INLINE void* GetVertexDataPtr() { return m_vertex_data; }
+	INLINE void* GetIndexDataPtr() { return m_index_data; }
+	INLINE uint64_t GetVertexDataSize() { return m_vertex_data_size; }
+	INLINE uint64_t GetIndexDataSize() { return m_index_data_size; }
+
 private:
-	void* m_data;
-	
+	void* m_vertex_data;
+	void* m_index_data;
 	KEMemorySystem();
-	uint64_t m_size;
-	uint64_t m_offset;
+	uint64_t m_vertex_data_size;
+	uint64_t m_index_data_size;
+
+	uint64_t m_vertex_offset;
+	uint64_t m_index_offset;
 
 
 };

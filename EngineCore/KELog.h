@@ -6,8 +6,8 @@
 namespace KELog {
 	
 #ifdef _DEBUG
-
-	static FILE* log_file = fopen("engine.log", "w");
+	static FILE* log_file_open = nullptr;
+	static errno_t file_open = fopen_s(&log_file_open,"engine.log", "w");
 #endif // _DEBUG
 
 	__forceinline void Log(const char* const format,...) {
@@ -15,10 +15,10 @@ namespace KELog {
 		char dest[1024 * 16];
 		va_list argptr;
 		va_start(argptr, format);
-		vsprintf(dest, format, argptr);
+		vsprintf_s(dest, format, argptr);
 		va_end(argptr);
-		fprintf(log_file,dest);
-		fflush(log_file);
+		fprintf_s(log_file_open,dest);
+		fflush(log_file_open);
 #endif // _DEBUG
 
 		

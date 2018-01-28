@@ -52,7 +52,8 @@ namespace KEVulkanRHI {
 	void VulkanRHI::prepareVertices()
 	{
 
-		uint32_t vertexBufferSize = KEMemorySystem::GetMemorySystem().GetMemorySize();
+		uint64_t vertexBufferSize = KEMemorySystem::GetMemorySystem().GetVertexDataSize();
+		uint64_t indexBufferSize = KEMemorySystem::GetMemorySystem().GetIndexDataSize();
 
 		VkMemoryAllocateInfo memAlloc = {};
 		memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -67,7 +68,7 @@ namespace KEVulkanRHI {
 
 		struct {
 			StagingBuffer vertices;
-			//StagingBuffer indices;
+			StagingBuffer indices;
 		} stagingBuffers;
 
 		// Vertex buffer
@@ -86,43 +87,43 @@ namespace KEVulkanRHI {
 		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &stagingBuffers.vertices.memory));
 		// Map and copy
 		VK_CHECK_RESULT(vkMapMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.memory, 0, memAlloc.allocationSize, 0, &data));
-		memcpy(data, KEMemorySystem::GetMemorySystem().GetDataPtr(), vertexBufferSize);
+		memcpy(data, KEMemorySystem::GetMemorySystem().GetVertexDataPtr(), vertexBufferSize);
 		vkUnmapMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.memory);
 		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.buffer, stagingBuffers.vertices.memory, 0));
 
 		// Create a m_vk_device.logicalDevice local buffer to which the (host local) vertex data will be copied and which will be used for rendering
-		vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &vertexBufferInfo, nullptr, &vertices.buffer));
-		vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, vertices.buffer, &memReqs);
+		vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT ;
+		VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &vertexBufferInfo, nullptr, &m_vertex_index_buffer.buffer));
+		vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, m_vertex_index_buffer.buffer, &memReqs);
 		memAlloc.allocationSize = memReqs.size;
 		memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &vertices.memory));
-		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, vertices.buffer, vertices.memory, 0));
+		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &m_vertex_index_buffer.memory));
+		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, m_vertex_index_buffer.buffer, m_vertex_index_buffer.memory, 0));
 
 		// Index buffer
-		//VkBufferCreateInfo indexbufferInfo = {};
-		//indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		//indexbufferInfo.size = indexBufferSize;
-		//indexbufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		//// Copy index data to a buffer visible to the host (staging buffer)
-		//VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &indexbufferInfo, nullptr, &stagingBuffers.indices.buffer));
-		//vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, &memReqs);
-		//memAlloc.allocationSize = memReqs.size;
-		//memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		//VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &stagingBuffers.indices.memory));
-		//VK_CHECK_RESULT(vkMapMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory, 0, indexBufferSize, 0, &data));
-		//memcpy(data, indexBuffer.data(), indexBufferSize);
-		//vkUnmapMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory);
-		//VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, stagingBuffers.indices.memory, 0));
-		//
-		//// Create destination buffer with m_vk_device.logicalDevice only visibility
-		//indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		//VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &indexbufferInfo, nullptr, &indices.buffer));
-		//vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, indices.buffer, &memReqs);
-		//memAlloc.allocationSize = memReqs.size;
-		//memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		//VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &indices.memory));
-		//VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, indices.buffer, indices.memory, 0));
+		VkBufferCreateInfo indexbufferInfo = {};
+		indexbufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		indexbufferInfo.size = KEMemorySystem::GetMemorySystem().GetIndexDataSize();
+		indexbufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		// Copy index data to a buffer visible to the host (staging buffer)
+		VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &indexbufferInfo, nullptr, &stagingBuffers.indices.buffer));
+		vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, &memReqs);
+		memAlloc.allocationSize = memReqs.size;
+		memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &stagingBuffers.indices.memory));
+		VK_CHECK_RESULT(vkMapMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory, 0, indexBufferSize, 0, &data));
+		memcpy(data, KEMemorySystem::GetMemorySystem().GetIndexDataPtr(), indexBufferSize);
+		vkUnmapMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory);
+		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, stagingBuffers.indices.memory, 0));
+		
+		// Create destination buffer with m_vk_device.logicalDevice only visibility
+		indexbufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		VK_CHECK_RESULT(vkCreateBuffer(m_vk_device.logicalDevice, &indexbufferInfo, nullptr, &indices.buffer));
+		vkGetBufferMemoryRequirements(m_vk_device.logicalDevice, indices.buffer, &memReqs);
+		memAlloc.allocationSize = memReqs.size;
+		memAlloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &memAlloc, nullptr, &indices.memory));
+		VK_CHECK_RESULT(vkBindBufferMemory(m_vk_device.logicalDevice, indices.buffer, indices.memory, 0));
 
 		VkCommandBufferBeginInfo cmdBufferBeginInfo = {};
 		cmdBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -137,10 +138,10 @@ namespace KEVulkanRHI {
 
 		// Vertex buffer
 		copyRegion.size = vertexBufferSize;
-		vkCmdCopyBuffer(copyCmd, stagingBuffers.vertices.buffer, vertices.buffer, 1, &copyRegion);
+		vkCmdCopyBuffer(copyCmd, stagingBuffers.vertices.buffer, m_vertex_index_buffer.buffer, 1, &copyRegion);
 		// Index buffer
-		//copyRegion.size = indexBufferSize;
-		//vkCmdCopyBuffer(copyCmd, stagingBuffers.indices.buffer, indices.buffer, 1, &copyRegion);
+		copyRegion.size = indexBufferSize;
+		vkCmdCopyBuffer(copyCmd, stagingBuffers.indices.buffer, indices.buffer, 1, &copyRegion);
 
 		// Flushing the command buffer will also submit it to the queue and uses a fence to ensure that all commands have been executed before returning
 		//flushCommandBuffer(copyCmd);
@@ -149,8 +150,8 @@ namespace KEVulkanRHI {
 		// Note: Staging buffer must not be deleted before the copies have been submitted and executed
 		vkDestroyBuffer(m_vk_device.logicalDevice, stagingBuffers.vertices.buffer, nullptr);
 		vkFreeMemory(m_vk_device.logicalDevice, stagingBuffers.vertices.memory, nullptr);
-		//vkDestroyBuffer(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, nullptr);
-		//vkFreeMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory, nullptr);
+		vkDestroyBuffer(m_vk_device.logicalDevice, stagingBuffers.indices.buffer, nullptr);
+		vkFreeMemory(m_vk_device.logicalDevice, stagingBuffers.indices.memory, nullptr);
 		
 	}
 
@@ -253,25 +254,14 @@ namespace KEVulkanRHI {
 			// Bind the rendering pipeline
 			// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
 			vkCmdBindPipeline(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline);
-			
-			// Bind triangle vertex buffer (contains position and colors)
-			//VkDeviceSize offsets[1] = { 0 };
-			//vkCmdBindVertexBuffers(m_draw_cmd_buffers[i], 0, 1, &vertices.buffer, offsets);
-			//
-			//// Bind triangle index buffer
-			////vkCmdBindIndexBuffer(m_draw_cmd_buffers[i], indices.buffer, 0, VK_INDEX_TYPE_UINT32);
-			//
-			//// Draw indexed triangle
-			////vkCmdDrawIndexed(m_draw_cmd_buffers[i], indices.count, 1, 0, 0, 1);
-			//vkCmdDraw(m_draw_cmd_buffers[i], 12, 1, 0, 0);
+		
+			VkDeviceSize offsets[1] = { 0 };
 
-			auto& all_entites = EntityManager::GetEntityManager().GetAllEntities();
-			System<KERenderComponent>& render_component_system = System<KERenderComponent>::GetSystem();
-			for (auto& entity : all_entites) {
-				auto& render_component = render_component_system.GetEntityComponent(entity);
-				vkCmdBindVertexBuffers(m_draw_cmd_buffers[i], 0, 1, &vertices.buffer, &render_component.offset);
-				vkCmdDraw(m_draw_cmd_buffers[i], 3, 1, 0, 0);
-			}
+			vkCmdBindVertexBuffers(m_draw_cmd_buffers[i], 0, 1, &m_vertex_index_buffer.buffer, offsets);
+			vkCmdBindIndexBuffer(m_draw_cmd_buffers[i], indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+
+			DrawGameScene(m_draw_cmd_buffers[i]);
 
 			vkCmdEndRenderPass(m_draw_cmd_buffers[i]);
 
@@ -280,6 +270,17 @@ namespace KEVulkanRHI {
 			//VK_IMAGE_LAYOUT_PRESENT_SRC_KHR for presenting it to the windowing system
 
 			VK_CHECK_RESULT(vkEndCommandBuffer(m_draw_cmd_buffers[i]));
+		}
+	}
+
+
+	void VulkanRHI::DrawGameScene(VkCommandBuffer p_draw_command_buffer) {
+		auto& all_entites = EntityManager::GetEntityManager().GetAllEntities();
+		System<KERenderComponent>& render_component_system = System<KERenderComponent>::GetSystem();
+		for (auto& entity : all_entites) {
+			auto& render_component = render_component_system.GetEntityComponent(entity);
+			//vkCmdDraw(p_draw_command_buffer, render_component.vertex_count, 1, render_component.first_vertex, 0);
+			vkCmdDrawIndexed(p_draw_command_buffer, render_component.index_count, 1, render_component.first_index, render_component.first_index, 0);
 		}
 	}
 
