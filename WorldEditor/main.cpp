@@ -1,9 +1,10 @@
-#include "KEEntity.h"
+#include "Camera\KECamera.h"
+#include "ECS/KEEntity.h"
 #include "KEWindow.h"
 #include "KEVulkanRHI\VulkanRHI.h"
 #include "KELog.h"
-#include "KESystem.h"
-#include "KERenderComponent.h"
+#include "ECS/KESystem.h"
+#include "ECS/KERenderComponent.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
@@ -149,6 +150,9 @@ int main(int argc, char **argv) {
 	//	{ { -1.0f,  1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
 	//	}, { 0,1,2 }));
 	
+
+	auto& camera = KECamera::GetCamera();
+
 
 	auto renderer = KEVulkanRHI::VulkanRHI();
 	renderer.Init();

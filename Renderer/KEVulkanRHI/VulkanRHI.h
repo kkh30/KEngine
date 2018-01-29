@@ -2,10 +2,12 @@
 #define __VULKAN_RHI_H__
 
 #define VK_USE_PLATFORM_WIN32_KHR
+#include "Camera\KECamera.h"
+#include "VulkanBuffer.h"
 #include "KEMemorySystem.h"
-#include "KEEntity.h"
-#include "KESystem.h"
-#include "KERenderComponent.h"
+#include "ECS/KEEntity.h"
+#include "ECS/KESystem.h"
+#include "ECS/KERenderComponent.h"
 #include "KEVulkanRHI\vulkan\vulkan.h"
 #include "RHI.h"
 #include "VulkanTools.h"
@@ -75,6 +77,15 @@ namespace KEVulkanRHI {
 			VkBuffer buffer;
 			uint32_t count;
 		} indices;
+
+		// Uniforms
+		struct VKUniform {
+			VkDescriptorSet desc_set;
+			UniformBuffer buffer;
+		};
+
+		VKUniform m_camera_uniform;
+		
 	private:
 		void ClearScreen();
 
@@ -97,6 +108,8 @@ namespace KEVulkanRHI {
 		void InitPipelineLayout();
 		void prepareVertices();
 		void DrawGameScene(VkCommandBuffer p_draw_command_buffer);
+		void InitUniforms();
+		void InitCameraUniforms();
 
 		int createVulkanSurface(VkInstance instance, SDL_Window* window, VkSurfaceKHR* surface);
 		std::vector<const char*> getAvailableWSIExtensions();

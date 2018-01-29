@@ -18,7 +18,10 @@ namespace KEVulkanRHI {
 		m_graphics_queue(VK_NULL_HANDLE),
 		m_graphics_pipeline(VK_NULL_HANDLE),
 		m_pipeline_layout(VK_NULL_HANDLE),
-		m_pipeline_cache(VK_NULL_HANDLE)
+		m_pipeline_cache(VK_NULL_HANDLE),
+		m_vertex_index_buffer({0}),
+		indices({0}), 
+		m_camera_uniform({0})
 	{
 		m_frame_rect.offset.x = 0;
 		m_frame_rect.offset.y = 0;
@@ -40,12 +43,50 @@ namespace KEVulkanRHI {
 		InitDepthStencil();
 		InitRenderPass();
 		InitPipelineLayout();
+		InitUniforms();
 		InitPiplineState();
 		InitFrameBuffer();
 		InitDrawCmdBuffers();
 		PrepareSynchronizationPrimitives();
 		prepareVertices();
 		RecordDrawCmdBuffers();
+
+	}
+
+	void VulkanRHI::InitUniforms() {
+		InitCameraUniforms();
+
+	}
+
+
+	void VulkanRHI::InitCameraUniforms() {
+
+		//1. alloc desc_set for camera uniform.
+		VkDescriptorSetAllocateInfo l_desc_set_alloc_info = {};
+		l_desc_set_alloc_info.descriptorPool = m_desc_pool;
+		l_desc_set_alloc_info.descriptorSetCount = 1;
+		l_desc_set_alloc_info.pSetLayouts = &m_desc_set_layout;
+		l_desc_set_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		vkAllocateDescriptorSets(m_vk_device.logicalDevice, &l_desc_set_alloc_info, &m_camera_uniform.desc_set);
+
+		
+		//2.alloc uniform buffer for camera uniform.
+		m_camera_uniform.buffer = UniformBuffer(sizeof(glm::mat4), VkBufferUsageFlagBits::VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+
+		//3. update descriptor set.
+		VkWriteDescriptorSet l_write_desc_set = {};
+		l_write_desc_set.descriptorCount = 1;
+		l_write_desc_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		l_write_desc_set.dstArrayElement = 0;
+		l_write_desc_set.dstBinding = 0;
+		l_write_desc_set.dstSet = m_camera_uniform.desc_set;
+		l_write_desc_set.pBufferInfo = &m_camera_uniform.buffer.buffer_info;
+		l_write_desc_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		vkUpdateDescriptorSets(m_vk_device.logicalDevice, 1,&l_write_desc_set, 0, nullptr);
+
+		//4. update camera data
+		m_camera_uniform.buffer.UpdateUniformBuffer(&KECamera::GetCamera().m_mvp.mvp);
 
 	}
 
@@ -162,7 +203,7 @@ namespace KEVulkanRHI {
 
 		VkDescriptorPoolSize l_desc_pool_size = {};
 		l_desc_pool_size.descriptorCount = 1;
-		l_desc_pool_size.type = VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		l_desc_pool_size.type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
 		VkDescriptorPoolCreateInfo l_desc_pool_create_info = {};
 		l_desc_pool_create_info.maxSets = 1;
@@ -171,10 +212,12 @@ namespace KEVulkanRHI {
 		l_desc_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		vkCreateDescriptorPool(m_vk_device.logicalDevice, &l_desc_pool_create_info, nullptr, &m_desc_pool);
 
+
+		//Camera Uniform Buffer Binding
 		VkDescriptorSetLayoutBinding l_binding0 = {};
 		l_binding0.binding = 0;
 		l_binding0.descriptorCount = 1;
-		l_binding0.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		l_binding0.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		l_binding0.pImmutableSamplers = nullptr;
 		l_binding0.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
@@ -184,11 +227,7 @@ namespace KEVulkanRHI {
 		l_desc_set_layout_create_info.pBindings = &l_binding0;
 		vkCreateDescriptorSetLayout(m_vk_device.logicalDevice, &l_desc_set_layout_create_info, nullptr, &m_desc_set_layout);
 
-		VkDescriptorSetAllocateInfo l_desc_set_layout = {};
-		l_desc_set_layout.descriptorPool = m_desc_pool;
-		l_desc_set_layout.descriptorSetCount = 1;
-		l_desc_set_layout.pSetLayouts = &m_desc_set_layout;
-		l_desc_set_layout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		
 
 		VkPipelineLayoutCreateInfo l_pipeline_layout_create_info = {};
 		l_pipeline_layout_create_info.pPushConstantRanges = nullptr;
@@ -210,7 +249,7 @@ namespace KEVulkanRHI {
 		// Set clear values for all framebuffer attachments with loadOp set to clear
 		// We use two attachments (color and depth) that are cleared at the start of the subpass and as such we need to set clear values for both
 		VkClearValue clearValues[2];
-		clearValues[0].color = { { 0.3f, 0.5f, 0.6f, 1.0f } };
+		clearValues[0].color = { { 0.0f, 0.5f, 0.0f, 1.0f } };
 		clearValues[1].depthStencil = { 1.0f, 0 };
 
 		VkRenderPassBeginInfo renderPassBeginInfo = {};
@@ -248,8 +287,9 @@ namespace KEVulkanRHI {
 			scissor.offset.y = 0;
 			vkCmdSetScissor(m_draw_cmd_buffers[i], 0, 1, &scissor);
 
+
 			// Bind descriptor sets describing shader binding points
-			//vkCmdBindDescriptorSets(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, nullptr, 0, 1, &descriptorSet, 0, nullptr);
+			vkCmdBindDescriptorSets(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1,&m_camera_uniform.desc_set, 0, nullptr);
 			
 			// Bind the rendering pipeline
 			// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time

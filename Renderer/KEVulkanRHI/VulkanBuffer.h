@@ -19,27 +19,39 @@
 
 
 //GPUBuffer has to init after RHI since Logic device is created in the RHI
-struct GPUBuffer {
+class GPUBuffer {
 
-private:
-	VkDevice& logicalDevice;
+protected:
+	VkDevice logicalDevice;
 
 public:
 	VkBuffer buffer;
 	VkDeviceMemory memory;
 	uint64_t size;
 public:
+
+	GPUBuffer():buffer(VK_NULL_HANDLE),
+		memory(VK_NULL_HANDLE),
+		size(0),
+		logicalDevice(VK_NULL_HANDLE)
+	{
+	
+	}
+
 	GPUBuffer(uint64_t p_size, VkBufferUsageFlags usage, VkMemoryPropertyFlags p_flags):
 		logicalDevice(VulkanDevice::GetVulkanDevice().logicalDevice),
 		size(p_size)
 	{
+
+		//Align size to 0x100 bytes
+		size = (size / 0x100 + 1) * 0x100;
 		//Create A Buffer
 		VkBufferCreateInfo l_buffer_create_info = {};
 		l_buffer_create_info.pNext = nullptr;
 		l_buffer_create_info.pQueueFamilyIndices = &(VulkanDevice::GetVulkanDevice().queueFamilyIndices.graphics);
 		l_buffer_create_info.queueFamilyIndexCount = 1;
 		l_buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		l_buffer_create_info.size = p_size;
+		l_buffer_create_info.size = size;
 		l_buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 		l_buffer_create_info.usage = usage;
 		vkCreateBuffer(logicalDevice, &l_buffer_create_info, nullptr, &buffer);
@@ -48,7 +60,8 @@ public:
 		VkMemoryRequirements l_reqs;
 		vkGetBufferMemoryRequirements(logicalDevice, buffer, &l_reqs);
 		VkMemoryAllocateInfo l_allc_memory_info = {};
-		l_allc_memory_info.allocationSize = p_size;
+		l_allc_memory_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		l_allc_memory_info.allocationSize = size;
 		l_allc_memory_info.memoryTypeIndex = VulkanDevice::GetVulkanDevice().getMemoryType(l_reqs.memoryTypeBits, p_flags);
 		vkAllocateMemory(logicalDevice, &l_allc_memory_info, nullptr, &memory);
 
@@ -58,7 +71,49 @@ public:
 
 	}
 
+	virtual ~GPUBuffer() {
+	
+	}
+
 };
+
+
+class UniformBuffer: public GPUBuffer {
+
+
+private:
+	void* m_data_host_ptr;
+public:
+	VkDescriptorBufferInfo buffer_info;
+
+public:
+
+	UniformBuffer(uint64_t p_size, VkBufferUsageFlags usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VkMemoryPropertyFlags p_flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT):
+		GPUBuffer(p_size, usage, p_flags),
+		m_data_host_ptr(nullptr)
+	{
+		
+		vkMapMemory(logicalDevice, memory, 0, size, 0, &m_data_host_ptr);
+		buffer_info.buffer = buffer;
+		buffer_info.offset = 0;
+		buffer_info.range = size;
+	}
+
+	void UpdateUniformBuffer(void* src) {
+
+		memmove(m_data_host_ptr, src, size);
+	}
+
+	UniformBuffer():GPUBuffer()
+	{
+
+	}
+	~UniformBuffer() {
+		//vkUnmapMemory(logicalDevice, memory);
+	}
+
+};
+
 
 
 
