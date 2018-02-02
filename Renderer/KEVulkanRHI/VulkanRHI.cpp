@@ -86,7 +86,7 @@ namespace KEVulkanRHI {
 		vkUpdateDescriptorSets(m_vk_device.logicalDevice, 1,&l_write_desc_set, 0, nullptr);
 
 		//4. update camera data
-		m_camera_uniform.buffer.UpdateUniformBuffer(&KECamera::GetCamera().m_mvp.mvp);
+		m_camera_uniform.buffer.UpdateUniformBuffer(&KECamera::GetCamera().mvp_buffers[m_currentBuffer]);
 
 	}
 
@@ -249,7 +249,7 @@ namespace KEVulkanRHI {
 		// Set clear values for all framebuffer attachments with loadOp set to clear
 		// We use two attachments (color and depth) that are cleared at the start of the subpass and as such we need to set clear values for both
 		VkClearValue clearValues[2];
-		clearValues[0].color = { { 0.0f, 0.5f, 0.0f, 1.0f } };
+		clearValues[0].color = { { 0.1f, 0.2f, 0.3f, 1.0f } };
 		clearValues[1].depthStencil = { 1.0f, 0 };
 
 		VkRenderPassBeginInfo renderPassBeginInfo = {};
@@ -320,6 +320,8 @@ namespace KEVulkanRHI {
 		for (auto& entity : all_entites) {
 			auto& render_component = render_component_system.GetEntityComponent(entity);
 			//vkCmdDraw(p_draw_command_buffer, render_component.vertex_count, 1, render_component.first_vertex, 0);
+			//todo::vertex offset应该使用，多个vertices upload的时候，后面的rendercomponent应该有vertex offset(同一个vertex buffer)
+			// first_index 有点类似于vertex offset
 			vkCmdDrawIndexed(p_draw_command_buffer, render_component.index_count, 1, render_component.first_index, render_component.first_index, 0);
 		}
 	}
@@ -505,12 +507,16 @@ namespace KEVulkanRHI {
 
 
 	void VulkanRHI::Update() {
+
 		// Get next image in the swap chain (back/front buffer)
 		VK_CHECK_RESULT(m_swapChain.acquireNextImage(m_semaphores.presentCompleteSemaphore, &m_currentBuffer));
 
 		// Use a fence to wait until the command buffer has finished execution before using it again
 		VK_CHECK_RESULT(vkWaitForFences(m_vk_device.logicalDevice, 1, &m_waitFences[m_currentBuffer], VK_TRUE, UINT64_MAX));
 		VK_CHECK_RESULT(vkResetFences(m_vk_device.logicalDevice, 1, &m_waitFences[m_currentBuffer]));
+		auto& camera = KECamera::GetCamera();
+		camera.Update(m_currentBuffer);
+		m_camera_uniform.buffer.UpdateUniformBuffer(&camera.mvp_buffers[m_currentBuffer]);
 
 		// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
 		VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;

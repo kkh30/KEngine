@@ -7,6 +7,7 @@
 #include <SDL\SDL_syswm.h>
 #include <functional>
 #include "EngineConstans.h"
+#include "Camera\KECamera.h"
 
 
 //KEWindow Implemented In A Singleton Way,

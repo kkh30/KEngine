@@ -20,14 +20,21 @@ public:
 	~KECamera();
 	KECamera(const KECamera&) = delete;
 	KECamera& operator=(const KECamera&) = delete;
+
+	enum {TRIPLE_BUFFER_SIZE = 3};
+
 	struct MVP{
 		glm::mat4 proj;
 		glm::mat4 view;
 		glm::mat4 model;
-		glm::mat4 mvp;
 	}m_mvp;
 
+	glm::mat4 mvp_buffers[TRIPLE_BUFFER_SIZE];
+
 	KECamera();
+	void Update(uint8_t current_buffer);
+	void Translate(const glm::vec3&);
+	void Rotate(const glm::vec3&,float);
 
 };
 

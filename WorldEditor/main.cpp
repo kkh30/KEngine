@@ -92,14 +92,15 @@ int main(int argc, char **argv) {
 	std::vector<uint32_t> indices;
 
 
+
 	for (auto i = 0; i < attrib.vertices.size() ; i+=3) {
 		KEVertex l_vertex = {};
 		l_vertex.position[0] = attrib.vertices[i + 0];
 		l_vertex.position[1] = attrib.vertices[i + 1];
 		l_vertex.position[2] = attrib.vertices[i + 2];
-		l_vertex.color[0] = 0.5f;
-		l_vertex.color[1] = 0.5f;
-		l_vertex.color[2] = 0.75f;
+		l_vertex.color[0] = materials[i%4].diffuse[0];
+		l_vertex.color[1] = materials[i%4].diffuse[1];
+		l_vertex.color[2] = materials[i%4].diffuse[2];
 		vertices.push_back(l_vertex);
 
 	}
@@ -122,33 +123,6 @@ int main(int argc, char **argv) {
 		printf("Failed to load/parse .obj.\n");
 		return false;
 	}
-
-	//PrintInfo(attrib, shapes, materials);
-	
-	//render_system.AddEntityComponent(entity0, KERenderComponent({
-	//	{ { 1.0f,  1.0f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
-	//	{ { -1.0f,  1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
-	//	{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } }
-	//	}, { 0,1,2 }));
-	//
-	//render_system.AddEntityComponent(entity1, KERenderComponent({
-	//	{ { 1.0f,  -1.0f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
-	//	{ { -1.0f,  -1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
-	//	{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } }
-	//	}, { 0,1,2 }));
-	//
-	//render_system.AddEntityComponent(entity2, KERenderComponent({
-	//	{ { 1.0f,  1.0f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
-	//	{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-	//	{ { 1.0f,  -1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
-	//	}, {0,1,2}));
-	//
-	//
-	//render_system.AddEntityComponent(entity3, KERenderComponent({
-	//	{ { -1.0f,  -1.0f, 0.0f },{ 1.0f, 0.0f, 0.0f } },
-	//	{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-	//	{ { -1.0f,  1.0f, 0.0f },{ 0.0f, 1.0f, 0.0f } },
-	//	}, { 0,1,2 }));
 	
 
 	auto& camera = KECamera::GetCamera();
