@@ -16,7 +16,7 @@ KECamera::KECamera()
 		glm::vec3(0, 0, 0),     // and looks at the origin
 		glm::vec3(0, 1, 0)     // Head is up (set to 0,-1,0 to look upside-down)
 	);
-	m_mvp.model = glm::scale(m_mvp.model,glm::vec3(0.1));
+	m_mvp.model = glm::scale(m_mvp.model,glm::vec3(0.01));
 	// Vulkan clip space has inverted Y and half Z.
 	// Todo Move this logic into vulkanRHI
 	for (auto& mvp: mvp_buffers) {

@@ -5,38 +5,86 @@
 #include "KELog.h"
 #include "ECS/KESystem.h"
 #include "ECS/KERenderComponent.h"
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader.h"
+#include <fbxsdk.h>
+#include "fbximporter\DisplayMesh.h"
+#include "fbximporter\Common.h"
 
-//static bool TestLoadObj(const char* filename, const char* basepath = NULL,
-//	bool triangulate = true) {
-//	std::cout << "Loading " << filename << std::endl;
-//
-//	tinyobj::attrib_t attrib;
-//	std::vector<tinyobj::shape_t> shapes;
-//	std::vector<tinyobj::material_t> materials;
-//
-//	//timerutil t;
-//	//t.start();
-//	std::string err;
-//	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, filename,
-//		basepath, triangulate);
-//	//t.end();
-//	//printf("Parsing time: %lu [msecs]\n", t.msec());
-//
-//	if (!err.empty()) {
-//		std::cerr << err << std::endl;
-//	}
-//
-//	if (!ret) {
-//		printf("Failed to load/parse .obj.\n");
-//		return false;
-//	}
-//
-//	//PrintInfo(attrib, shapes, materials);
-//
-//	return true;
-//}
+void static DisplayContent(FbxNode* pNode, Entity e)
+{
+	FbxNodeAttribute::EType lAttributeType;
+	int i;
+
+	if (pNode->GetNodeAttribute() == NULL)
+	{
+		FBXSDK_printf("NULL Node Attribute\n\n");
+	}
+	else
+	{
+		lAttributeType = (pNode->GetNodeAttribute()->GetAttributeType());
+
+		switch (lAttributeType)
+		{
+		default:
+			break;
+			//case FbxNodeAttribute::eMarker:  
+			//    DisplayMarker(pNode);
+			//    break;
+			//
+			//case FbxNodeAttribute::eSkeleton:  
+			//    DisplaySkeleton(pNode);
+			//    break;
+
+		case FbxNodeAttribute::eMesh:
+			DisplayMesh(pNode,e);
+			break;
+
+			//case FbxNodeAttribute::eNurbs:      
+			//    DisplayNurb(pNode);
+			//    break;
+			//
+			//case FbxNodeAttribute::ePatch:     
+			//    DisplayPatch(pNode);
+			//    break;
+			//
+			//case FbxNodeAttribute::eCamera:    
+			//    DisplayCamera(pNode);
+			//    break;
+			//
+			//case FbxNodeAttribute::eLight:     
+			//    DisplayLight(pNode);
+			//    break;
+			//
+			//case FbxNodeAttribute::eLODGroup:
+			//    DisplayLodGroup(pNode);
+			//    break;
+		}
+	}
+
+	//DisplayUserProperties(pNode);
+	//DisplayTarget(pNode);
+	//DisplayPivotsAndLimits(pNode);
+	//DisplayTransformPropagation(pNode);
+	//DisplayGeometricTransform(pNode);
+
+	for (i = 0; i < pNode->GetChildCount(); i++)
+	{
+		DisplayContent(pNode->GetChild(i),e);
+	}
+}
+
+void static DisplayContent(FbxScene* pScene,Entity e)
+{
+	int i;
+	FbxNode* lNode = pScene->GetRootNode();
+
+	if (lNode)
+	{
+		for (i = 0; i < lNode->GetChildCount(); i++)
+		{
+			DisplayContent(lNode->GetChild(i),e);
+		}
+	}
+}
 
 int main(int argc, char **argv) {
 
@@ -69,61 +117,24 @@ int main(int argc, char **argv) {
 	auto value = component_system.GetEntityComponent(entity0);
 
 	auto& render_system = System<KERenderComponent>::GetSystem();
-	// Setup vertices
-	const char* basepath = "models/";
-	if (argc > 2) {
-		basepath = argv[2];
-	}
-	//assert(true == TestLoadObj(argv[1], basepath));
-
-	std::cout << "Loading " << argv[1] << std::endl;
-
-	tinyobj::attrib_t attrib;
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-
-	//timerutil t;
-	//t.start();
-	std::string err;
-	bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &err, argv[1],
-		basepath, true);
-	
-	std::vector<KEVertex> vertices;  // pos(3float), normal(3float), color(3float)
-	std::vector<uint32_t> indices;
 
 
 
-	for (auto i = 0; i < attrib.vertices.size() ; i+=3) {
-		KEVertex l_vertex = {};
-		l_vertex.position[0] = attrib.vertices[i + 0];
-		l_vertex.position[1] = attrib.vertices[i + 1];
-		l_vertex.position[2] = attrib.vertices[i + 2];
-		l_vertex.color[0] = materials[i%4].diffuse[0];
-		l_vertex.color[1] = materials[i%4].diffuse[1];
-		l_vertex.color[2] = materials[i%4].diffuse[2];
-		vertices.push_back(l_vertex);
+	FbxManager* lSdkManager = nullptr;
+	FbxScene* lScene = NULL;
+	bool lResult;
 
-	}
+	// Prepare the FBX SDK.
+	InitializeSdkObjects(lSdkManager, lScene);
 
-	for (auto& shape : shapes) {
-		for (auto& index : shape.mesh.indices) {
-			indices.push_back(index.vertex_index);
-		}
-	}
+	lResult = LoadScene(lSdkManager, lScene, argv[1]);
 
-
-	render_system.AddEntityComponent(entity0, KERenderComponent(std::move(vertices), std::move(indices)));
-	
-
-	if (!err.empty()) {
-		std::cerr << err << std::endl;
-	}
-
-	if (!ret) {
-		printf("Failed to load/parse .obj.\n");
-		return false;
-	}
-	
+	//if (lResult == false)
+	//{
+	//	FBXSDK_printf("\n\nAn error occurred while loading the scene...");
+	//}
+	//
+	DisplayContent(lScene,entity0);
 
 	auto& camera = KECamera::GetCamera();
 

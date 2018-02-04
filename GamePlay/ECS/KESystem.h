@@ -41,7 +41,7 @@ public:
 	};
 
 	//template<typename T>
-	__forceinline T GetEntityComponent(Entity e) {
+	__forceinline T& GetEntityComponent(Entity e) {
 		return m_components[e];
 	};
 
