@@ -27,10 +27,10 @@ public:
 		glm::mat4 proj;
 		glm::mat4 view;
 		glm::mat4 model;
-	}m_mvp;
+	};
 
-	glm::mat4 mvp_buffers[TRIPLE_BUFFER_SIZE];
-
+	MVP mvp_buffers[TRIPLE_BUFFER_SIZE];
+	uint8_t m_current_buffer;
 	KECamera();
 	void Update(uint8_t current_buffer);
 	void Translate(const glm::vec3&);

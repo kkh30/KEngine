@@ -71,7 +71,7 @@ namespace KEVulkanRHI {
 
 		
 		//2.alloc uniform buffer for camera uniform.
-		m_camera_uniform.buffer = UniformBuffer(sizeof(glm::mat4), VkBufferUsageFlagBits::VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		m_camera_uniform.buffer = UniformBuffer(sizeof(glm::mat4) * 3, VkBufferUsageFlagBits::VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
 
 		//3. update descriptor set.

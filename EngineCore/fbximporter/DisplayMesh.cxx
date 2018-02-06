@@ -100,7 +100,7 @@ void DisplayPolygons(FbxMesh* pMesh,Entity e)
 
     for (i = 0; i < lPolygonCount; i++)
     {
-        DisplayInt("        Polygon ", i);
+       // DisplayInt("        Polygon ", i);
         int l;
 
         //for (l = 0; l < pMesh->GetElementPolygonGroupCount(); l++)

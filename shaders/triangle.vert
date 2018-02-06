@@ -4,19 +4,18 @@
 #extension GL_ARB_shading_language_420pack : enable
 
 layout (location = 0) in vec3 inPos;
-layout (location = 1) in vec3 inColor;
+layout (location = 1) in vec3 inNormal;
 layout (set = 0,binding = 0) uniform MVP{
-	mat4 mvp;
+	mat4 proj;
+	mat4 view;
+	mat4 model;
 } mvp;
 
-/*layout (binding = 0) uniform UBO 
-{
-	mat4 projectionMatrix;
-	mat4 modelMatrix;
-	mat4 viewMatrix;
-} ubo;*/
+layout (location = 0) out vec3 outNormal;
+layout (location = 1) out vec4 outViewPos;
+layout (location = 2) out vec4 outViewLightPos;
 
-layout (location = 0) out vec3 outColor;
+vec3 lightPos = vec3(50.0,80,0);
 
 out gl_PerVertex 
 {
@@ -26,6 +25,8 @@ out gl_PerVertex
 
 void main() 
 {
-	outColor = inColor;
-	gl_Position = mvp.mvp * vec4(inPos.xyz, 1.0);
+	outNormal = (transpose(inverse(mvp.view * mvp.model)) * vec4(inNormal,0)).xyz;
+	outViewPos = mvp.view * mvp.model *vec4(inPos,1);
+	outViewLightPos = mvp.view * mvp.model *vec4(lightPos,1);
+	gl_Position = mvp.proj * mvp.view * mvp.model * vec4(inPos.xyz, 1.0);
 }
