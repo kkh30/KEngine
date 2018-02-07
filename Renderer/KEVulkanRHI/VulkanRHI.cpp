@@ -71,7 +71,7 @@ namespace KEVulkanRHI {
 
 		
 		//2.alloc uniform buffer for camera uniform.
-		m_camera_uniform.buffer = UniformBuffer(sizeof(glm::mat4) * 3, VkBufferUsageFlagBits::VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		m_camera_uniform.buffer = UniformBuffer(sizeof(glm::mat4) * 3);
 
 
 		//3. update descriptor set.
@@ -396,7 +396,7 @@ namespace KEVulkanRHI {
 			depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 			depthStencilState.depthTestEnable = VK_TRUE;
 			depthStencilState.depthWriteEnable = VK_TRUE;
-			depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+			depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
 			depthStencilState.depthBoundsTestEnable = VK_FALSE;
 			depthStencilState.back.failOp = VK_STENCIL_OP_KEEP;
 			depthStencilState.back.passOp = VK_STENCIL_OP_KEEP;
@@ -513,10 +513,10 @@ namespace KEVulkanRHI {
 
 		// Use a fence to wait until the command buffer has finished execution before using it again
 		VK_CHECK_RESULT(vkWaitForFences(m_vk_device.logicalDevice, 1, &m_waitFences[m_currentBuffer], VK_TRUE, UINT64_MAX));
-		VK_CHECK_RESULT(vkResetFences(m_vk_device.logicalDevice, 1, &m_waitFences[m_currentBuffer]));
 		auto& camera = KECamera::GetCamera();
-		camera.Update(m_currentBuffer);
 		m_camera_uniform.buffer.UpdateUniformBuffer(&camera.mvp_buffers[m_currentBuffer]);
+		VK_CHECK_RESULT(vkResetFences(m_vk_device.logicalDevice, 1, &m_waitFences[m_currentBuffer]));
+		
 
 		// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
 		VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;

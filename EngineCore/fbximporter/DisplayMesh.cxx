@@ -44,12 +44,12 @@ void DisplayMesh(FbxNode* pNode,Entity e)
     DisplayMetaDataConnections(lMesh);
     DisplayControlsPoints(lMesh,e);
     DisplayPolygons(lMesh,e);
-    DisplayMaterialMapping(lMesh);
-    DisplayMaterial(lMesh);
-    DisplayTexture(lMesh);
-    DisplayMaterialConnections(lMesh);
-    DisplayLink(lMesh);
-    DisplayShape(lMesh);
+    //DisplayMaterialMapping(lMesh);
+    //DisplayMaterial(lMesh);
+    //DisplayTexture(lMesh);
+    //DisplayMaterialConnections(lMesh);
+    //DisplayLink(lMesh);
+    //DisplayShape(lMesh);
 	//DisplayCache(lMesh);
 }
 
@@ -90,7 +90,7 @@ void DisplayPolygons(FbxMesh* pMesh,Entity e)
 {
     int i, j, lPolygonCount = pMesh->GetPolygonCount();
     FbxVector4* lControlPoints = pMesh->GetControlPoints(); 
-    char header[100];
+    //char header[100];
 
     //DisplayString("    Polygons");
 	auto& render_component = RenderSystem::GetSystem().GetEntityComponent(e);
@@ -145,12 +145,12 @@ void DisplayPolygons(FbxMesh* pMesh,Entity e)
 					switch (leVtxc->GetReferenceMode())
 					{
 					case FbxGeometryElement::eDirect:
-						DisplayColor(header, leVtxc->GetDirectArray().GetAt(lControlPointIndex));
+						//DisplayColor(header, leVtxc->GetDirectArray().GetAt(lControlPointIndex));
 						break;
 					case FbxGeometryElement::eIndexToDirect:
 						{
 							int id = leVtxc->GetIndexArray().GetAt(lControlPointIndex);
-							DisplayColor(header, leVtxc->GetDirectArray().GetAt(id));
+							//DisplayColor(header, leVtxc->GetDirectArray().GetAt(id));
 						}
 						break;
 					default:
@@ -163,12 +163,12 @@ void DisplayPolygons(FbxMesh* pMesh,Entity e)
 						switch (leVtxc->GetReferenceMode())
 						{
 						case FbxGeometryElement::eDirect:
-							DisplayColor(header, leVtxc->GetDirectArray().GetAt(vertexId));
+							//DisplayColor(header, leVtxc->GetDirectArray().GetAt(vertexId));
 							break;
 						case FbxGeometryElement::eIndexToDirect:
 							{
 								int id = leVtxc->GetIndexArray().GetAt(vertexId);
-								DisplayColor(header, leVtxc->GetDirectArray().GetAt(id));
+								//DisplayColor(header, leVtxc->GetDirectArray().GetAt(id));
 							}
 							break;
 						default:
@@ -196,12 +196,12 @@ void DisplayPolygons(FbxMesh* pMesh,Entity e)
 					switch (leUV->GetReferenceMode())
 					{
 					case FbxGeometryElement::eDirect:
-						Display2DVector(header, leUV->GetDirectArray().GetAt(lControlPointIndex));
+						//Display2DVector(header, leUV->GetDirectArray().GetAt(lControlPointIndex));
 						break;
 					case FbxGeometryElement::eIndexToDirect:
 						{
 							int id = leUV->GetIndexArray().GetAt(lControlPointIndex);
-							Display2DVector(header, leUV->GetDirectArray().GetAt(id));
+							//Display2DVector(header, leUV->GetDirectArray().GetAt(id));
 						}
 						break;
 					default:
@@ -217,7 +217,7 @@ void DisplayPolygons(FbxMesh* pMesh,Entity e)
 						case FbxGeometryElement::eDirect:
 						case FbxGeometryElement::eIndexToDirect:
 							{
-								Display2DVector(header, leUV->GetDirectArray().GetAt(lTextureUVIndex));
+								//Display2DVector(header, leUV->GetDirectArray().GetAt(lTextureUVIndex));
 							}
 							break;
 						default:
@@ -242,12 +242,12 @@ void DisplayPolygons(FbxMesh* pMesh,Entity e)
 					switch (leNormal->GetReferenceMode())
 					{
 					case FbxGeometryElement::eDirect:
-						Display3DVector(header, leNormal->GetDirectArray().GetAt(vertexId));
+						//Display3DVector(header, leNormal->GetDirectArray().GetAt(vertexId));
 						break;
 					case FbxGeometryElement::eIndexToDirect:
 						{
 							int id = leNormal->GetIndexArray().GetAt(vertexId);
-							Display3DVector(header, leNormal->GetDirectArray().GetAt(id));
+							//Display3DVector(header, leNormal->GetDirectArray().GetAt(id));
 						}
 						break;
 					default:
@@ -266,12 +266,12 @@ void DisplayPolygons(FbxMesh* pMesh,Entity e)
 					switch (leTangent->GetReferenceMode())
 					{
 					case FbxGeometryElement::eDirect:
-						Display3DVector(header, leTangent->GetDirectArray().GetAt(vertexId));
+						//Display3DVector(header, leTangent->GetDirectArray().GetAt(vertexId));
 						break;
 					case FbxGeometryElement::eIndexToDirect:
 						{
 							int id = leTangent->GetIndexArray().GetAt(vertexId);
-							Display3DVector(header, leTangent->GetDirectArray().GetAt(id));
+							//Display3DVector(header, leTangent->GetDirectArray().GetAt(id));
 						}
 						break;
 					default:
@@ -291,12 +291,12 @@ void DisplayPolygons(FbxMesh* pMesh,Entity e)
 					switch (leBinormal->GetReferenceMode())
 					{
 					case FbxGeometryElement::eDirect:
-						Display3DVector(header, leBinormal->GetDirectArray().GetAt(vertexId));
+						//Display3DVector(header, leBinormal->GetDirectArray().GetAt(vertexId));
 						break;
 					case FbxGeometryElement::eIndexToDirect:
 						{
 							int id = leBinormal->GetIndexArray().GetAt(vertexId);
-							Display3DVector(header, leBinormal->GetDirectArray().GetAt(id));
+							//Display3DVector(header, leBinormal->GetDirectArray().GetAt(id));
 						}
 						break;
 					default:

@@ -32,7 +32,7 @@ public:
 	MVP mvp_buffers[TRIPLE_BUFFER_SIZE];
 	uint8_t m_current_buffer;
 	KECamera();
-	void Update(uint8_t current_buffer);
+	void Update();
 	void Translate(const glm::vec3&);
 	void Rotate(const glm::vec3&,float);
 

@@ -129,6 +129,9 @@ int main(int argc, char **argv) {
 
 	lResult = LoadScene(lSdkManager, lScene, argv[1]);
 
+	//FbxAxisSystem vulkan_axis_system(FbxAxisSystem::EUpVector::eYAxis,FbxAxisSystem::EFrontVector::eParityEven,FbxAxisSystem::eRightHanded);
+	//vulkan_axis_system.ConvertScene(lScene);
+
 	//if (lResult == false)
 	//{
 	//	FBXSDK_printf("\n\nAn error occurred while loading the scene...");

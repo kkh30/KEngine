@@ -15,11 +15,13 @@ void main()
 
 
   vec3 ambient = vec3(0.15);
+  vec3 normal = normalize(inNormal);
   vec3 eye_dir = -inViewPos.xyz;
-  vec3 light_dir = -inViewLightPos.xyz + inViewPos.xyz;
-  vec3 h = eye_dir+light_dir;
-  h /= length(h);
-  float diffuse = max(0,dot(normalize(inNormal),normalize(light_dir)));
-  float specular = max(0,dot(inNormal,h));
-  outFragColor = vec4((ambient + (diffuse + specular * 0.0002)* vec3(0.75)),1.0);
+  vec3 light_dir = inViewLightPos.xyz - inViewPos.xyz;
+  float light_distance = length(light_dir);
+  //light_dir = normalize(light_dir);
+  vec3 h = normalize(eye_dir+light_dir);
+  float diffuse = clamp(dot(normal,normalize(light_dir)),0.0,1.0);
+  float specular = pow(clamp(dot(normal,normalize(h)),0.0,1.0),25.0);
+  outFragColor = vec4(ambient + (diffuse * vec3(0.75)),1.0);
 }

@@ -61,6 +61,7 @@ void KEWindow::Show() {
 	while (is_running) {
 
 		//Call Renderer Func
+		KECamera::GetCamera().Update();
 		m_renderer_update_func();
 
 		SDL_Event event;
