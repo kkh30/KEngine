@@ -9,14 +9,14 @@ KECamera::KECamera():m_current_buffer(0)
 	auto height = KEWindow::GetWindow().GetHeight();
 
 	for (auto& mvp:mvp_buffers) {
-		mvp.proj = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 50.0f);
+		mvp.proj = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 10.0f);
 
 		mvp.view = glm::lookAt(
-			glm::vec3(25.0, 25.0f, 25.0),  // Camera is at (-5,3,-10), in World Space
+			glm::vec3(1.0f, 1.0f, 1.0f),  // Camera is at (-5,3,-10), in World Space
 			glm::vec3(0.0f,0.0f, 0.0f),     // and looks at the origin
 			glm::vec3(0.0f, 0.0f, 1.0f)     // Head is up (set to 0,-1,0 to look upside-down)
 		);
-		mvp.model = glm::scale(mvp.model, glm::vec3(0.002f));
+		mvp.model = glm::scale(mvp.model, glm::vec3(0.00008f));
 		mvp.model = glm::translate(mvp.model, glm::vec3(0.0f, 0.0f,0.0f));
 		// Vulkan clip space has inverted Y and half Z.
 		// Todo Move this logic into vulkanRHI
