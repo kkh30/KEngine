@@ -11,7 +11,7 @@
 
 #include "DisplayLink.h"
 #if defined (FBXSDK_ENV_MAC)
-// disable the “format not a string literal and no format arguments” warning since
+// disable the “format not a string literal and no format arguments?warning since
 // the FBXSDK_printf calls made here are all valid calls and there is no secuity risk
 #pragma GCC diagnostic ignored "-Wformat-security"
 #endif

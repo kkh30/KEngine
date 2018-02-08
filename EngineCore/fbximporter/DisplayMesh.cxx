@@ -65,18 +65,18 @@ void DisplayControlsPoints(FbxMesh* pMesh,Entity e)
     for (i = 0; i < lControlPointsCount; i++)
     {
 		KEVertex l_vertex;
-		l_vertex.position[0] = lControlPoints[i].Buffer()[0];
-		l_vertex.position[1] = lControlPoints[i].Buffer()[1];
-		l_vertex.position[2] = lControlPoints[i].Buffer()[2];
+		l_vertex.position[0] = static_cast<float>(lControlPoints[i].Buffer()[0]);
+		l_vertex.position[1] = static_cast<float>(lControlPoints[i].Buffer()[1]);
+		l_vertex.position[2] = static_cast<float>(lControlPoints[i].Buffer()[2]);
         for (int j = 0; j < pMesh->GetElementNormalCount(); j++)
         {
             FbxGeometryElementNormal* leNormals = pMesh->GetElementNormal( j);
 			if (leNormals->GetMappingMode() == FbxGeometryElement::eByControlPoint)
 			{
 				if (leNormals->GetReferenceMode() == FbxGeometryElement::eDirect) {
-					l_vertex.color[0] = leNormals->GetDirectArray().GetAt(i).Buffer()[0];
-					l_vertex.color[1] = leNormals->GetDirectArray().GetAt(i).Buffer()[1];
-					l_vertex.color[2] = leNormals->GetDirectArray().GetAt(i).Buffer()[2];
+					l_vertex.color[0] = static_cast<float>(leNormals->GetDirectArray().GetAt(i).Buffer()[0]);
+					l_vertex.color[1] = static_cast<float>(leNormals->GetDirectArray().GetAt(i).Buffer()[1]);
+					l_vertex.color[2] = static_cast<float>(leNormals->GetDirectArray().GetAt(i).Buffer()[2]);
 				}
 			}
         }

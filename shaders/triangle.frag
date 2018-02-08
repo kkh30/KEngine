@@ -22,6 +22,6 @@ void main()
   //light_dir = normalize(light_dir);
   vec3 h = normalize(eye_dir+light_dir);
   float diffuse = clamp(dot(normal,normalize(light_dir)),0.0,1.0);
-  float specular = pow(clamp(dot(normal,normalize(h)),0.0,1.0),25.0);
-  outFragColor = vec4(ambient + (diffuse * vec3(0.75)),1.0);
+  float specular = pow(clamp(dot(normal,normalize(h)),0.0,1.0),20.0);
+  outFragColor = vec4(ambient + (diffuse * 0.45 + specular * vec3(0.75)),1.0);
 }

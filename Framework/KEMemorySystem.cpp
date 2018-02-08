@@ -15,7 +15,7 @@ m_index_offset(0)
 uint64_t KEMemorySystem::UploadVertexDataToVRAM(void* src,uint64_t size) {
 	assert(size + m_vertex_offset <= m_vertex_data_size && "Not Enough VRAM\n");
 	const uint64_t l_current_offset = m_vertex_offset;
-	memcpy((uint8_t*)m_vertex_data + m_vertex_offset, src, size);
+	memcpy(&m_vertex_data[m_vertex_offset], src, size);
 	m_vertex_offset += size;
 	return l_current_offset;
 }
@@ -23,7 +23,7 @@ uint64_t KEMemorySystem::UploadVertexDataToVRAM(void* src,uint64_t size) {
 uint64_t KEMemorySystem::UploadIndexDataToVRAM(void* src, uint64_t size) {
 	assert(size + m_index_offset <= m_index_data_size && "Not Enough VRAM\n");
 	const uint64_t l_current_offset = m_index_offset;
-	memcpy((uint8_t*)m_index_data + m_index_offset, src, size);
+	memcpy(&m_index_data[m_index_offset], src, size);
 	m_index_offset += size;
 	return l_current_offset;
 }

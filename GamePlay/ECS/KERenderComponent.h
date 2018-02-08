@@ -18,13 +18,13 @@ struct KERenderComponent
 	//uint64_t index_offset_in_byte;
 	uint64_t vertex_size;
 	uint64_t index_size;
-	uint32_t vertex_count;
-	uint32_t index_count;
+	uint64_t vertex_count;
+	uint64_t index_count;
 	//Todo::Replace With GameScene Info
-	static uint32_t total_vertex_num;
-	static uint32_t total_index_num;
-	uint32_t first_vertex;
-	uint32_t first_index;
+	static uint64_t total_vertex_num;
+	static uint64_t total_index_num;
+	uint64_t first_vertex;
+	uint64_t first_index;
 
 	KERenderComponent(std::vector<KEVertex>& p_vertices, std::vector<uint32_t>& p_indices) :
 		vertex_size(sizeof(KEVertex) * p_vertices.size()),
@@ -39,8 +39,8 @@ struct KERenderComponent
 		l_memory_system.UploadIndexDataToVRAM(p_indices.data(), index_size);
 		first_index = total_index_num;
 		first_vertex = total_vertex_num;
-		total_index_num += vertex_count;
-		total_vertex_num += index_count;
+		total_index_num += index_count;
+		total_vertex_num += vertex_count;
 	}
 
 	KERenderComponent(std::vector<KEVertex>& p_vertices) :
@@ -54,7 +54,7 @@ struct KERenderComponent
 		auto& l_memory_system = KEMemorySystem::GetMemorySystem();
 		l_memory_system.UploadVertexDataToVRAM(p_vertices.data(), vertex_size);
 		first_vertex = total_vertex_num;
-		total_vertex_num += index_count;
+		total_vertex_num += vertex_count;
 	}
 
 
@@ -71,8 +71,8 @@ struct KERenderComponent
 		l_memory_system.UploadIndexDataToVRAM(p_indices.data(), index_size);
 		first_index = total_index_num;
 		first_vertex = total_vertex_num;
-		total_index_num += vertex_count;
-		total_vertex_num += index_count;
+		total_index_num += index_count;
+		total_vertex_num += vertex_count;
 	}
 
 	KERenderComponent(std::vector<KEVertex>&& p_vertices) :
@@ -86,7 +86,7 @@ struct KERenderComponent
 		auto& l_memory_system = KEMemorySystem::GetMemorySystem();
 		l_memory_system.UploadVertexDataToVRAM(p_vertices.data(), vertex_size);
 		first_vertex = total_vertex_num;
-		total_vertex_num += index_count;
+		total_vertex_num += vertex_count;
 	}
 
 
@@ -106,7 +106,7 @@ struct KERenderComponent
 		vertex_size = vertex_count * sizeof(KEVertex);
 		l_memory_system.UploadVertexDataToVRAM(p_vertices.data(), vertex_size);
 		first_vertex = total_vertex_num;
-		total_vertex_num += index_count;
+		total_vertex_num += vertex_count;
 
 	}
 
@@ -116,7 +116,7 @@ struct KERenderComponent
 		index_size = index_count * sizeof(uint32_t);
 		l_memory_system.UploadIndexDataToVRAM(p_indices.data(), index_size);
 		first_index = total_index_num;
-		total_index_num += vertex_count;
+		total_index_num += index_count;
 
 	}
 
@@ -126,7 +126,7 @@ struct KERenderComponent
 		vertex_size = vertex_count * sizeof(KEVertex);
 		l_memory_system.UploadVertexDataToVRAM(p_vertices.data(), vertex_size);
 		first_vertex = total_vertex_num;
-		total_vertex_num += index_count;
+		total_vertex_num += vertex_count;
 
 	}
 
@@ -136,7 +136,7 @@ struct KERenderComponent
 		index_size = index_count * sizeof(uint32_t);
 		l_memory_system.UploadIndexDataToVRAM(p_indices.data(), index_size);
 		first_index = total_index_num;
-		total_index_num += vertex_count;
+		total_index_num += index_count;
 
 	}
 };

@@ -90,14 +90,14 @@ int main(int argc, char **argv) {
 
 
 	auto& window = KEWindow::GetWindow();
-	window.CreateKEWindow(2560,100,800,600,SDL_WindowFlags::SDL_WINDOW_VULKAN);
+	window.CreateKEWindow(2560,0,1920,1080,SDL_WindowFlags::SDL_WINDOW_VULKAN);
 	auto& entity_manager = EntityManager::GetEntityManager();
 
 	auto entity0 = entity_manager.CreateEntity();
 	KELog::Log("Create Entity %d\n", entity0);
 
-	//auto entity1 = entity_manager.CreateEntity();
-	//KELog::Log("Create Entity %d\n", entity1);
+	auto entity1 = entity_manager.CreateEntity();
+	KELog::Log("Create Entity %d\n", entity1);
 	//
 	//auto entity2 = entity_manager.CreateEntity();
 	//KELog::Log("Create Entity %d\n", entity2);
@@ -138,6 +138,18 @@ int main(int argc, char **argv) {
 	//}
 	//
 	DisplayContent(lScene,entity0);
+
+	
+	
+	render_system.AddEntityComponent(entity1, KERenderComponent({
+		{ { -100,  100, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+		{ { -100,  -100, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+		{ { 100, -100, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+		{ { 100, 100, 0.0f },{ 0.0f, 0.0f, 1.0f } },
+		}, { 0,1,2,0,2,3 }));
+	
+	
+
 
 	auto& camera = KECamera::GetCamera();
 

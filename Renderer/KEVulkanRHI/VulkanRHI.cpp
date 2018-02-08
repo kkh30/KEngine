@@ -322,7 +322,7 @@ namespace KEVulkanRHI {
 			//vkCmdDraw(p_draw_command_buffer, render_component.vertex_count, 1, render_component.first_vertex, 0);
 			//todo::vertex offset应该使用，多个vertices upload的时候，后面的rendercomponent应该有vertex offset(同一个vertex buffer)
 			// first_index 有点类似于vertex offset
-			vkCmdDrawIndexed(p_draw_command_buffer, render_component.index_count, 1, render_component.first_index, render_component.first_index, 0);
+			vkCmdDrawIndexed(p_draw_command_buffer, static_cast<uint32_t>(render_component.index_count), 1, static_cast<uint32_t>(render_component.first_index), static_cast<int32_t>(render_component.first_vertex), 0);
 		}
 	}
 
