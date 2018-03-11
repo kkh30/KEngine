@@ -13,7 +13,7 @@ include_directories(${PROJECT_SOURCE_DIR}/GamePlay)
 
 
 link_directories("C:/Windows/SysWOW64")
-link_directories("C:/VulkanSDK/1.0.65.1/Lib")
+link_directories("C:/VulkanSDK/1.1.70.1/Lib")
 link_directories(${PROJECT_SOURCE_DIR}/ThirdParty/libs)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/ThirdParty)
