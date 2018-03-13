@@ -16,7 +16,7 @@ namespace KEVulkanRHI {
 		m_frame_rect(VkRect2D()),
 		m_currentBuffer(0),
 		m_graphics_queue(VK_NULL_HANDLE),
-		m_graphics_pipeline(VK_NULL_HANDLE),
+		m_graphics_pipeline({}),
 		m_pipeline_layout(VK_NULL_HANDLE),
 		m_pipeline_cache(VK_NULL_HANDLE),
 		m_vertex_index_buffer({0}),
@@ -42,6 +42,7 @@ namespace KEVulkanRHI {
 		InitGraphicsCommandPool();
 		InitDepthStencil();
 		InitRenderPass();
+		InitShadowMapPass();
 		InitPipelineLayout();
 		InitUniforms();
 		InitPiplineState();
@@ -50,7 +51,7 @@ namespace KEVulkanRHI {
 		PrepareSynchronizationPrimitives();
 		prepareVertices();
 		RecordDrawCmdBuffers();
-
+		RecodrShadowCmdBuffers();
 	}
 
 	void VulkanRHI::InitUniforms() {
@@ -87,6 +88,65 @@ namespace KEVulkanRHI {
 
 		//4. update camera data
 		m_camera_uniform.buffer.UpdateUniformBuffer(&KECamera::GetCamera().mvp_buffers[m_currentBuffer]);
+
+	}
+
+	void VulkanRHI::InitShadowMapPass()
+	{
+		std::array<VkAttachmentDescription, 1> attachments = {};
+		
+		// Depth attachment
+		attachments[0].format = DefaultShadowMapFormat;
+		attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		attachments[0].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference depthReference = {};
+		depthReference.attachment = 0;
+		depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkSubpassDescription subpassDescription = {};
+		subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpassDescription.pDepthStencilAttachment = &depthReference;
+		subpassDescription.inputAttachmentCount = 0;
+		subpassDescription.pInputAttachments = nullptr;
+		subpassDescription.preserveAttachmentCount = 0;
+		subpassDescription.pPreserveAttachments = nullptr;
+		subpassDescription.pResolveAttachments = nullptr;
+
+		// Subpass dependencies for layout transitions
+		std::array<VkSubpassDependency, 2> dependencies;
+
+		dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[0].dstSubpass = 0;
+		dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[0].dstStageMask = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+		dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[0].dstAccessMask =  VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		dependencies[1].srcSubpass = 0;
+		dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependencies[1].srcStageMask = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+		dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		dependencies[1].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+		dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		VkRenderPassCreateInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		renderPassInfo.pAttachments = attachments.data();
+		renderPassInfo.subpassCount = 1;
+		renderPassInfo.pSubpasses = &subpassDescription;
+		renderPassInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+		renderPassInfo.pDependencies = dependencies.data();
+
+		VK_CHECK_RESULT(vkCreateRenderPass(m_vk_device.logicalDevice, &renderPassInfo, nullptr, &m_shadowmapPass));
 
 	}
 
@@ -293,7 +353,7 @@ namespace KEVulkanRHI {
 			
 			// Bind the rendering pipeline
 			// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
-			vkCmdBindPipeline(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline);
+			vkCmdBindPipeline(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline[0]);
 		
 			VkDeviceSize offsets[1] = { 0 };
 
@@ -311,6 +371,77 @@ namespace KEVulkanRHI {
 
 			VK_CHECK_RESULT(vkEndCommandBuffer(m_draw_cmd_buffers[i]));
 		}
+	}
+
+	void VulkanRHI::RecodrShadowCmdBuffers()
+	{
+		VkCommandBufferBeginInfo cmdBufInfo = {};
+		cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		cmdBufInfo.pNext = nullptr;
+		cmdBufInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+
+		// Set clear values for all framebuffer attachments with loadOp set to clear
+		// We use two attachments (color and depth) that are cleared at the start of the subpass and as such we need to set clear values for both
+		VkClearValue clearValues = {};
+		clearValues.depthStencil = { 1.0f, 0 };
+
+		VkRenderPassBeginInfo renderPassBeginInfo = {};
+		renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassBeginInfo.pNext = nullptr;
+		renderPassBeginInfo.renderPass = m_shadowmapPass;
+		renderPassBeginInfo.renderArea = m_frame_rect;
+		renderPassBeginInfo.clearValueCount = 1;
+		renderPassBeginInfo.pClearValues = &clearValues;
+
+		// Set target frame buffer
+		renderPassBeginInfo.framebuffer = m_shadowmap_framebuffer;
+
+		VK_CHECK_RESULT(vkBeginCommandBuffer(m_shadow_map_cmd, &cmdBufInfo));
+
+		// Start the first sub pass specified in our default render pass setup by the base class
+		// This will clear the color and depth attachment
+		vkCmdBeginRenderPass(m_shadow_map_cmd, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		// Update dynamic viewport state
+		VkViewport viewport = {};
+		viewport.width = (float)m_frame_rect.extent.width;
+		viewport.height = (float)m_frame_rect.extent.height;
+		viewport.minDepth = (float) 0.0f;
+		viewport.maxDepth = (float) 1.0f;
+		vkCmdSetViewport(m_shadow_map_cmd, 0, 1, &viewport);
+
+		// Update dynamic scissor state
+		VkRect2D scissor = {};
+		scissor.extent.width = m_frame_rect.extent.width;
+		scissor.extent.height = m_frame_rect.extent.height;
+		scissor.offset.x = 0;
+		scissor.offset.y = 0;
+		vkCmdSetScissor(m_shadow_map_cmd, 0, 1, &scissor);
+
+
+		// Bind descriptor sets describing shader binding points
+		vkCmdBindDescriptorSets(m_shadow_map_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &m_camera_uniform.desc_set, 0, nullptr);
+
+		// Bind the rendering pipeline
+		// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
+		vkCmdBindPipeline(m_shadow_map_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline[1]);
+
+		VkDeviceSize offsets[1] = { 0 };
+
+		vkCmdBindVertexBuffers(m_shadow_map_cmd, 0, 1, &m_vertex_index_buffer.buffer, offsets);
+		vkCmdBindIndexBuffer(m_shadow_map_cmd, indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+
+		DrawGameScene(m_shadow_map_cmd);
+
+		vkCmdEndRenderPass(m_shadow_map_cmd);
+
+
+		//Ending the render pass will add an implicit barrier transitioning the frame buffer color attachment to 
+		//VK_IMAGE_LAYOUT_PRESENT_SRC_KHR for presenting it to the windowing system
+
+		VK_CHECK_RESULT(vkEndCommandBuffer(m_shadow_map_cmd));
+
 	}
 
 
@@ -488,13 +619,33 @@ namespace KEVulkanRHI {
 		l_pipeline_cache_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 		vkCreatePipelineCache(m_vk_device.logicalDevice, &l_pipeline_cache_create_info, nullptr, &m_pipeline_cache);
 		
+		VkPipelineShaderStageCreateInfo shadowShaderStages = {};
+		// Vertex shader
+		shadowShaderStages.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		// Set pipeline stage for this shader
+		shadowShaderStages.stage = VK_SHADER_STAGE_VERTEX_BIT;
+		// Load binary SPIR-V shader
+		shadowShaderStages.module = tools::loadShader("D:/Dev/KEngine/shaders/triangle_shadowmap.vert.spv", m_vk_device.logicalDevice);
+		// Main entry point for the shader
+		shadowShaderStages.pName = "main";
+		assert(shadowShaderStages.module != VK_NULL_HANDLE);
+		VkGraphicsPipelineCreateInfo l_shadow_map_pipeline_create_info = l_pipeline_create_info;
+		l_shadow_map_pipeline_create_info.basePipelineIndex = 0;
+		l_shadow_map_pipeline_create_info.renderPass = m_shadowmapPass;
+		l_shadow_map_pipeline_create_info.stageCount = 1;
+		l_shadow_map_pipeline_create_info.pStages = &shadowShaderStages;
+		l_shadow_map_pipeline_create_info.pColorBlendState = nullptr;
+		l_shadow_map_pipeline_create_info.flags = VK_PIPELINE_CREATE_DERIVATIVE_BIT ;
+
+		
+
+		l_pipeline_create_info.flags = VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
 		l_pipeline_create_info.renderPass = m_renderPass;
 
 
-
-
+		std::array<VkGraphicsPipelineCreateInfo, 2> l_pipeline_create_infos = { l_pipeline_create_info,l_shadow_map_pipeline_create_info };
 		// Create rendering pipeline using the specified states
-		VK_CHECK_RESULT(vkCreateGraphicsPipelines(m_vk_device.logicalDevice, m_pipeline_cache, 1, &l_pipeline_create_info, nullptr, &m_graphics_pipeline));
+		VK_CHECK_RESULT(vkCreateGraphicsPipelines(m_vk_device.logicalDevice, m_pipeline_cache, l_pipeline_create_infos.size(), l_pipeline_create_infos.data(), nullptr, m_graphics_pipeline.data()));
 
 	}
 
@@ -519,20 +670,35 @@ namespace KEVulkanRHI {
 		
 
 		// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
-		VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		// The submit info structure specifices a command buffer queue submission batch
-		VkSubmitInfo submitInfo = {};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo.pWaitDstStageMask = &waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
-		submitInfo.pWaitSemaphores = &m_semaphores.presentCompleteSemaphore;							// Semaphore(s) to wait upon before the submitted command buffer starts executing
-		submitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
-		submitInfo.pSignalSemaphores = &m_semaphores.renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
-		submitInfo.signalSemaphoreCount = 1;											// One signal semaphore
-		submitInfo.pCommandBuffers = &m_draw_cmd_buffers[m_currentBuffer];					// Command buffers(s) to execute in this batch (submission)
-		submitInfo.commandBufferCount = 1;												// One command buffer
 
-																						// Submit to the graphics queue passing a wait fence
-		VK_CHECK_RESULT(vkQueueSubmit(m_graphics_queue, 1, &submitInfo, m_waitFences[m_currentBuffer]));
+		VkPipelineStageFlags waitShadowStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		// The submit info structure specifices a command buffer queue submission batch
+		VkSubmitInfo shadowmapSubmitInfo = {};
+		shadowmapSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		shadowmapSubmitInfo.pWaitDstStageMask = &waitShadowStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
+		shadowmapSubmitInfo.pWaitSemaphores = &m_semaphores.presentCompleteSemaphore;							// Semaphore(s) to wait upon before the submitted command buffer starts executing
+		shadowmapSubmitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
+		shadowmapSubmitInfo.pSignalSemaphores = &m_semaphores.shadowmapCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
+		shadowmapSubmitInfo.signalSemaphoreCount = 1;											// One signal semaphore
+		shadowmapSubmitInfo.pCommandBuffers = &m_shadow_map_cmd;					// Command buffers(s) to execute in this batch (submission)
+		shadowmapSubmitInfo.commandBufferCount = 1;
+		
+		VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+
+		// The submit info structure specifices a command buffer queue submission batch
+		VkSubmitInfo forwardSubmitInfo = {};
+		forwardSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		forwardSubmitInfo.pWaitDstStageMask = &waitStageMask;									// Pointer to the list of pipeline stages that the semaphore waits will occur at
+		forwardSubmitInfo.pWaitSemaphores = &m_semaphores.shadowmapCompleteSemaphore;							// Semaphore(s) to wait upon before the submitted command buffer starts executing
+		forwardSubmitInfo.waitSemaphoreCount = 1;												// One wait semaphore																				
+		forwardSubmitInfo.pSignalSemaphores = &m_semaphores.renderCompleteSemaphore;						// Semaphore(s) to be signaled when command buffers have completed
+		forwardSubmitInfo.signalSemaphoreCount = 1;											// One signal semaphore
+		forwardSubmitInfo.pCommandBuffers = &m_draw_cmd_buffers[m_currentBuffer];					// Command buffers(s) to execute in this batch (submission)
+		forwardSubmitInfo.commandBufferCount = 1;												// One command buffer
+
+		VkSubmitInfo l_submit_infos[2] = { shadowmapSubmitInfo ,forwardSubmitInfo };
+																								// Submit to the graphics queue passing a wait fence
+		VK_CHECK_RESULT(vkQueueSubmit(m_graphics_queue, 2, l_submit_infos, m_waitFences[m_currentBuffer]));
 		//VK_CHECK_RESULT(vkQueueSubmit(m_graphics_queue, 1, &submitInfo, nullptr));
 
 		// Present the current buffer to the swap chain
@@ -555,6 +721,9 @@ namespace KEVulkanRHI {
 		// Semaphore used to ensures that all commands submitted have been finished before submitting the image to the queue
 		VK_CHECK_RESULT(vkCreateSemaphore(m_vk_device.logicalDevice, &semaphoreCreateInfo, nullptr, &m_semaphores.renderCompleteSemaphore));
 
+		// Shadowmap semaphore
+		VK_CHECK_RESULT(vkCreateSemaphore(m_vk_device.logicalDevice, &semaphoreCreateInfo, nullptr, &m_semaphores.shadowmapCompleteSemaphore));
+
 		// Fences (Used to check draw command buffer completion)
 		VkFenceCreateInfo fenceCreateInfo = {};
 		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -569,14 +738,28 @@ namespace KEVulkanRHI {
 
 
 	void VulkanRHI::InitDrawCmdBuffers() {
-		m_draw_cmd_buffers.resize(m_swapChain.imageCount);
-		VkCommandBufferAllocateInfo l_draw_cmd_allc_info;
-		l_draw_cmd_allc_info.pNext = nullptr;
-		l_draw_cmd_allc_info.commandBufferCount = m_swapChain.imageCount;
-		l_draw_cmd_allc_info.commandPool = m_graphics_cmd_pool;
-		l_draw_cmd_allc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		l_draw_cmd_allc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		vkAllocateCommandBuffers(m_vk_device.logicalDevice, &l_draw_cmd_allc_info, m_draw_cmd_buffers.data());
+		//Init ForwardRenderCmd
+		{
+			m_draw_cmd_buffers.resize(m_swapChain.imageCount);
+			VkCommandBufferAllocateInfo l_draw_cmd_allc_info = {};
+			l_draw_cmd_allc_info.pNext = nullptr;
+			l_draw_cmd_allc_info.commandBufferCount = m_swapChain.imageCount;
+			l_draw_cmd_allc_info.commandPool = m_graphics_cmd_pool;
+			l_draw_cmd_allc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+			l_draw_cmd_allc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+			vkAllocateCommandBuffers(m_vk_device.logicalDevice, &l_draw_cmd_allc_info, m_draw_cmd_buffers.data());
+
+		}
+		//Init Shadowmap
+		{
+			VkCommandBufferAllocateInfo l_draw_cmd_allc_info = {};
+			l_draw_cmd_allc_info.pNext = nullptr;
+			l_draw_cmd_allc_info.commandBufferCount = 1;
+			l_draw_cmd_allc_info.commandPool = m_graphics_cmd_pool;
+			l_draw_cmd_allc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+			l_draw_cmd_allc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+			vkAllocateCommandBuffers(m_vk_device.logicalDevice, &l_draw_cmd_allc_info, &m_shadow_map_cmd);
+		}
 	}
 
 	void VulkanRHI::InitCmdQueue() {
@@ -590,73 +773,146 @@ namespace KEVulkanRHI {
 	}
 
 	void VulkanRHI::InitDepthStencil(){
-		VkImageCreateInfo image = {};
-		image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		image.pNext = NULL;
-		image.imageType = VK_IMAGE_TYPE_2D;
-		image.format = DefaultDepthStencilFormat;
-		image.extent = { KEWindow::GetWindow().GetWidth(), KEWindow::GetWindow().GetHeight(), 1 };
-		image.mipLevels = 1;
-		image.arrayLayers = 1;
-		image.samples = VK_SAMPLE_COUNT_1_BIT;
-		image.tiling = VK_IMAGE_TILING_OPTIMAL;
-		image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		image.flags = 0;
 
-		VkMemoryAllocateInfo mem_alloc = {};
-		mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		mem_alloc.pNext = NULL;
-		mem_alloc.allocationSize = 0;
-		mem_alloc.memoryTypeIndex = 0;
+		//Init DepthStencil Buffer in Forward Pass
+		{
+			VkImageCreateInfo image = {};
+			image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+			image.pNext = NULL;
+			image.imageType = VK_IMAGE_TYPE_2D;
+			image.format = DefaultDepthStencilFormat;
+			image.extent = { KEWindow::GetWindow().GetWidth(), KEWindow::GetWindow().GetHeight(), 1 };
+			image.mipLevels = 1;
+			image.arrayLayers = 1;
+			image.samples = VK_SAMPLE_COUNT_1_BIT;
+			image.tiling = VK_IMAGE_TILING_OPTIMAL;
+			image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+			image.flags = 0;
 
-		VkImageViewCreateInfo depthStencilView = {};
-		depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		depthStencilView.pNext = NULL;
-		depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		depthStencilView.format = DefaultDepthStencilFormat;
-		depthStencilView.flags = 0;
-		depthStencilView.subresourceRange = {};
-		depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-		depthStencilView.subresourceRange.baseMipLevel = 0;
-		depthStencilView.subresourceRange.levelCount = 1;
-		depthStencilView.subresourceRange.baseArrayLayer = 0;
-		depthStencilView.subresourceRange.layerCount = 1;
+			VkMemoryAllocateInfo mem_alloc = {};
+			mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+			mem_alloc.pNext = NULL;
+			mem_alloc.allocationSize = 0;
+			mem_alloc.memoryTypeIndex = 0;
 
-		VkMemoryRequirements memReqs;
+			VkImageViewCreateInfo depthStencilView = {};
+			depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			depthStencilView.pNext = NULL;
+			depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			depthStencilView.format = DefaultDepthStencilFormat;
+			depthStencilView.flags = 0;
+			depthStencilView.subresourceRange = {};
+			depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			depthStencilView.subresourceRange.baseMipLevel = 0;
+			depthStencilView.subresourceRange.levelCount = 1;
+			depthStencilView.subresourceRange.baseArrayLayer = 0;
+			depthStencilView.subresourceRange.layerCount = 1;
 
-		VK_CHECK_RESULT(vkCreateImage(m_vk_device.logicalDevice, &image, nullptr, &m_depth_stencil_buffer.image));
-		vkGetImageMemoryRequirements(m_vk_device.logicalDevice, m_depth_stencil_buffer.image, &memReqs);
-		mem_alloc.allocationSize = memReqs.size;
-		mem_alloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &mem_alloc, nullptr, &m_depth_stencil_buffer.mem));
-		VK_CHECK_RESULT(vkBindImageMemory(m_vk_device.logicalDevice, m_depth_stencil_buffer.image, m_depth_stencil_buffer.mem, 0));
+			VkMemoryRequirements memReqs;
 
-		depthStencilView.image = m_depth_stencil_buffer.image;
-		VK_CHECK_RESULT(vkCreateImageView(m_vk_device.logicalDevice, &depthStencilView, nullptr, &m_depth_stencil_buffer.view));
+			VK_CHECK_RESULT(vkCreateImage(m_vk_device.logicalDevice, &image, nullptr, &m_depth_stencil_buffer.image));
+			vkGetImageMemoryRequirements(m_vk_device.logicalDevice, m_depth_stencil_buffer.image, &memReqs);
+			mem_alloc.allocationSize = memReqs.size;
+			mem_alloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &mem_alloc, nullptr, &m_depth_stencil_buffer.mem));
+			VK_CHECK_RESULT(vkBindImageMemory(m_vk_device.logicalDevice, m_depth_stencil_buffer.image, m_depth_stencil_buffer.mem, 0));
+
+			depthStencilView.image = m_depth_stencil_buffer.image;
+			VK_CHECK_RESULT(vkCreateImageView(m_vk_device.logicalDevice, &depthStencilView, nullptr, &m_depth_stencil_buffer.view));
+		}
+		//Init shadow map buffer
+		{
+			VkImageCreateInfo image = {};
+			image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+			image.pNext = NULL;
+			image.imageType = VK_IMAGE_TYPE_2D;
+			image.format = DefaultShadowMapFormat;
+			image.extent = { KEWindow::GetWindow().GetWidth(), KEWindow::GetWindow().GetHeight(), 1 };
+			image.mipLevels = 1;
+			image.arrayLayers = 1;
+			image.samples = VK_SAMPLE_COUNT_1_BIT;
+			image.tiling = VK_IMAGE_TILING_OPTIMAL;
+			image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+			image.flags = 0;
+
+			VkMemoryAllocateInfo mem_alloc = {};
+			mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+			mem_alloc.pNext = NULL;
+			mem_alloc.allocationSize = 0;
+			mem_alloc.memoryTypeIndex = 0;
+
+			VkImageViewCreateInfo depthStencilView = {};
+			depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			depthStencilView.pNext = NULL;
+			depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			depthStencilView.format = DefaultShadowMapFormat;
+			depthStencilView.flags = 0;
+			depthStencilView.subresourceRange = {};
+			depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			depthStencilView.subresourceRange.baseMipLevel = 0;
+			depthStencilView.subresourceRange.levelCount = 1;
+			depthStencilView.subresourceRange.baseArrayLayer = 0;
+			depthStencilView.subresourceRange.layerCount = 1;
+
+			VkMemoryRequirements memReqs;
+
+			VK_CHECK_RESULT(vkCreateImage(m_vk_device.logicalDevice, &image, nullptr, &m_shadowmap_buffer.image));
+			vkGetImageMemoryRequirements(m_vk_device.logicalDevice, m_shadowmap_buffer.image, &memReqs);
+			mem_alloc.allocationSize = memReqs.size;
+			mem_alloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+			VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &mem_alloc, nullptr, &m_shadowmap_buffer.mem));
+			VK_CHECK_RESULT(vkBindImageMemory(m_vk_device.logicalDevice, m_shadowmap_buffer.image, m_shadowmap_buffer.mem, 0));
+
+			depthStencilView.image = m_shadowmap_buffer.image;
+			VK_CHECK_RESULT(vkCreateImageView(m_vk_device.logicalDevice, &depthStencilView, nullptr, &m_shadowmap_buffer.view));
+
+		}
 	}
 	void VulkanRHI::InitFrameBuffer() {
-		VkImageView attachments[2];
-
-		// Depth/Stencil attachment is the same for all frame buffers
-		attachments[1] = m_depth_stencil_buffer.view;
-
-		VkFramebufferCreateInfo frameBufferCreateInfo = {};
-		frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		frameBufferCreateInfo.pNext = NULL;
-		frameBufferCreateInfo.renderPass = m_renderPass;
-		frameBufferCreateInfo.attachmentCount = 2;
-		frameBufferCreateInfo.pAttachments = attachments;
-		frameBufferCreateInfo.width = KEWindow::GetWindow().GetWidth();
-		frameBufferCreateInfo.height = KEWindow::GetWindow().GetHeight();
-		frameBufferCreateInfo.layers = 1;
-
-		// Create frame buffers for every swap chain image
-		m_frameBuffers.resize(m_swapChain.imageCount);
-		for (uint32_t i = 0; i < m_frameBuffers.size(); i++)
+		//Init Forward pass framebuffer.
 		{
-			attachments[0] = m_swapChain.buffers[i].view;
-			VK_CHECK_RESULT(vkCreateFramebuffer(m_vk_device.logicalDevice, &frameBufferCreateInfo, nullptr, &m_frameBuffers[i]));
+			VkImageView attachments[2];
+
+			// Depth/Stencil attachment is the same for all frame buffers
+			attachments[1] = m_depth_stencil_buffer.view;
+
+			VkFramebufferCreateInfo frameBufferCreateInfo = {};
+			frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			frameBufferCreateInfo.pNext = NULL;
+			frameBufferCreateInfo.renderPass = m_renderPass;
+			frameBufferCreateInfo.attachmentCount = 2;
+			frameBufferCreateInfo.pAttachments = attachments;
+			frameBufferCreateInfo.width = KEWindow::GetWindow().GetWidth();
+			frameBufferCreateInfo.height = KEWindow::GetWindow().GetHeight();
+			frameBufferCreateInfo.layers = 1;
+
+			// Create frame buffers for every swap chain image
+			m_frameBuffers.resize(m_swapChain.imageCount);
+			for (uint32_t i = 0; i < m_frameBuffers.size(); i++)
+			{
+				attachments[0] = m_swapChain.buffers[i].view;
+				VK_CHECK_RESULT(vkCreateFramebuffer(m_vk_device.logicalDevice, &frameBufferCreateInfo, nullptr, &m_frameBuffers[i]));
+			}
 		}
+		//Init Shadowmap framebuffer
+		{
+			VkImageView attachments;
+
+			// Depth/Stencil attachment is the same for all frame buffers
+			attachments = m_shadowmap_buffer.view;
+
+			VkFramebufferCreateInfo frameBufferCreateInfo = {};
+			frameBufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+			frameBufferCreateInfo.pNext = NULL;
+			frameBufferCreateInfo.renderPass = m_shadowmapPass;
+			frameBufferCreateInfo.attachmentCount = 1;
+			frameBufferCreateInfo.pAttachments = &attachments;
+			frameBufferCreateInfo.width = KEWindow::GetWindow().GetWidth();
+			frameBufferCreateInfo.height = KEWindow::GetWindow().GetHeight();
+			frameBufferCreateInfo.layers = 1;
+			VK_CHECK_RESULT(vkCreateFramebuffer(m_vk_device.logicalDevice, &frameBufferCreateInfo, nullptr, &m_shadowmap_framebuffer));
+		}
+		
 	}
 	void VulkanRHI::InitRenderPass()  {
 		std::array<VkAttachmentDescription, 2> attachments = {};

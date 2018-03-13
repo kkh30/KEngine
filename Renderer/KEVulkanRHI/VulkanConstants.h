@@ -6,6 +6,7 @@ namespace KEVulkanRHI {
 
 
 	const VkFormat DefaultDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
+	const VkFormat DefaultShadowMapFormat = VK_FORMAT_D32_SFLOAT;
 
 	template<typename T>
 	struct Rect{

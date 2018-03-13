@@ -41,25 +41,32 @@ namespace KEVulkanRHI {
 		VkSurfaceKHR m_surface;
 		VulkanSwapChain m_swapChain;
 		std::vector<VkCommandBuffer> m_draw_cmd_buffers;
-
+		VkCommandBuffer m_shadow_map_cmd;
 		struct DepthStencilBuffer{
 			VkImage image;
 			VkDeviceMemory mem;
 			VkImageView view;
 		}m_depth_stencil_buffer;
 
+		DepthStencilBuffer m_shadowmap_buffer;
+
 		VkRenderPass m_renderPass;
+		VkRenderPass m_shadowmapPass;
+
 		std::vector<VkFramebuffer> m_frameBuffers;
+		VkFramebuffer m_shadowmap_framebuffer;
 		VkRect2D m_frame_rect;
 		struct SynchronizationSemaphore {
 			VkSemaphore presentCompleteSemaphore;
 			VkSemaphore renderCompleteSemaphore;
+			VkSemaphore shadowmapCompleteSemaphore;
+
 		}m_semaphores;
 		std::vector<VkFence> m_waitFences;
 		uint32_t m_currentBuffer;
 		VkQueue m_graphics_queue;
 
-		VkPipeline m_graphics_pipeline;
+		std::array<VkPipeline,2> m_graphics_pipeline;
 		VkDescriptorPool m_desc_pool;
 		VkPipelineLayout m_pipeline_layout;
 		VkPipelineCache m_pipeline_cache;
@@ -104,12 +111,14 @@ namespace KEVulkanRHI {
 		void InitPiplineState();
 		void InitDrawCmdBuffers();
 		void RecordDrawCmdBuffers();
+		void RecodrShadowCmdBuffers();
 		void PrepareSynchronizationPrimitives();
 		void InitPipelineLayout();
 		void prepareVertices();
 		void DrawGameScene(VkCommandBuffer p_draw_command_buffer);
 		void InitUniforms();
 		void InitCameraUniforms();
+		void InitShadowMapPass();
 
 		int createVulkanSurface(VkInstance instance, SDL_Window* window, VkSurfaceKHR* surface);
 		std::vector<const char*> getAvailableWSIExtensions();

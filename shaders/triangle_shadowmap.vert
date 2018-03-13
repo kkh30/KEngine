@@ -10,12 +10,8 @@ layout (set = 0,binding = 0) uniform MVP{
 	mat4 view;
 	mat4 model;
 	mat4 shadow_view;
-	
-} mvp;
 
-layout (location = 0) out vec3 outNormal;
-layout (location = 1) out vec4 outViewPos;
-layout (location = 2) out vec4 outViewLightPos;
+} mvp;
 
 vec3 lightPos = vec3(100.0,100.0,100);
 
@@ -27,11 +23,6 @@ out gl_PerVertex
 
 void main() 
 {
-	mat4 viewModelMatrix = mvp.view * mvp.model;
-	outNormal = (transpose(inverse(viewModelMatrix)) * vec4(inNormal,0)).xyz;
-	//outNormal = (mvp.view * mvp.model * vec4(inNormal,0)).xyz;
-	
-	outViewPos = viewModelMatrix *vec4(inPos,1);
-	outViewLightPos = mvp.view *vec4(lightPos,1);
+	mat4 viewModelMatrix = mvp.shadow_view * mvp.model;
 	gl_Position = mvp.proj * viewModelMatrix * vec4(inPos.xyz, 1.0);
 }

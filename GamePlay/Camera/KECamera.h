@@ -27,6 +27,7 @@ public:
 		glm::mat4 proj;
 		glm::mat4 view;
 		glm::mat4 model;
+		glm::mat4 shadow_map_view;
 	};
 
 	MVP mvp_buffers[TRIPLE_BUFFER_SIZE];
