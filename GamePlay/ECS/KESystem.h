@@ -36,7 +36,7 @@ public:
 	};
 
 	//template<typename T>
-	__forceinline void AddEntityComponent(Entity e,T p_t) {
+	__forceinline void AddEntityComponent(Entity e,const T& p_t) {
 		m_components.insert(std::pair<Entity, T>(e,p_t));
 	};
 

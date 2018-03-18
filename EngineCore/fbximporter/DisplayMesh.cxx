@@ -36,9 +36,15 @@ void DisplayMaterialConnections(FbxMesh* pMesh);
 void DisplayMaterialTextureConnections( FbxSurfaceMaterial* pMaterial, 
                                        char * header, int pMatId, int l );
 
-void DisplayMesh(FbxNode* pNode,Entity e)
+void DisplayMesh(FbxNode* pNode,Entity e, FbxManager* manager)
 {
     FbxMesh* lMesh = (FbxMesh*) pNode->GetNodeAttribute ();
+
+	if (!lMesh->IsTriangleMesh())
+	{
+		FbxGeometryConverter clsConverter(manager);
+		clsConverter.Triangulate(pNode->GetNodeAttribute(),true);
+	}
 
     DisplayString("Mesh Name: ", (char *) pNode->GetName());
     DisplayMetaDataConnections(lMesh);
@@ -51,6 +57,16 @@ void DisplayMesh(FbxNode* pNode,Entity e)
     //DisplayLink(lMesh);
     //DisplayShape(lMesh);
 	//DisplayCache(lMesh);
+	auto l_transform = pNode->LclTranslation.Get();
+	auto& render_component = RenderSystem::GetSystem().GetEntityComponent(e);
+	render_component.SetLocalTranslation(glm::vec3(l_transform.mData[0] * 5.0f, l_transform.mData[1] * 5.0f, l_transform.mData[2] * 5.0f));
+	
+	auto r = float(rand()) / RAND_MAX;
+	auto g = float(rand()) / RAND_MAX;
+	auto b = float(rand()) / RAND_MAX;
+
+	float material[4] = { r,g,b,1.0f };
+	render_component.SetMaterial(material);
 }
 
 

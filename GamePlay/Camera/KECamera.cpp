@@ -9,20 +9,20 @@ KECamera::KECamera():m_current_buffer(0)
 	auto height = KEWindow::GetWindow().GetHeight();
 
 	for (auto& mvp:mvp_buffers) {
-		mvp.proj = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 10.0f);
+		mvp.proj = glm::perspective(glm::radians(90.0f), (float)width / (float)height, 0.1f,15.0f);
 
 		mvp.view = glm::lookAt(
-			glm::vec3(1.0f, 1.0f, 1.0f),  // Camera is at (-5,3,-10), in World Space
+			glm::vec3(5.0f, 5.0f, 5.0f),  // Camera is at (-5,3,-10), in World Space
 			glm::vec3(0.0f,0.0f, 0.0f),     // and looks at the origin
-			glm::vec3(0.0f, 0.0f, 1.0f)     // Head is up (set to 0,-1,0 to look upside-down)
+			glm::vec3(0.0f, 1.0f, 0.0f)     // Head is up (set to 0,-1,0 to look upside-down)
 		);
 
 		mvp.shadow_map_view = glm::lookAt(
-			glm::vec3(-1.0f, 1.0f, -1.0f),  // Camera is at (-5,3,-10), in World Space
+			glm::vec3(-10.0f, 5.0f, -5.0f),  // Camera is at (-5,3,-10), in World Space
 			glm::vec3(0.0f, 0.0f, 0.0f),     // and looks at the origin
-			glm::vec3(0.0f, 0.0f, 1.0f)     // Head is up (set to 0,-1,0 to look upside-down)
+			glm::vec3(0.0f, 1.0, 0.0f)     // Head is up (set to 0,-1,0 to look upside-down)
 		);
-		mvp.model = glm::scale(mvp.model, glm::vec3(0.00008f));
+		mvp.model = glm::scale(mvp.model, glm::vec3(0.5f));
 		mvp.model = glm::translate(mvp.model, glm::vec3(0.0f, 0.0f,0.0f));
 		// Vulkan clip space has inverted Y and half Z.
 		// Todo Move this logic into vulkanRHI
@@ -35,7 +35,7 @@ KECamera::KECamera():m_current_buffer(0)
 
 void KECamera::Update() {
 	//Translate(glm::vec3(0.0001,0.0,0.0));
-	Rotate(glm::vec3(0, 0, 1), 0.01f);
+	Rotate(glm::vec3(0, 1, 0), 0.01f);
 	m_current_buffer = (m_current_buffer + 1) % 3;
 
 

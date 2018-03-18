@@ -13,6 +13,11 @@ layout (set = 0,binding = 0) uniform MVP{
 
 } mvp;
 
+layout (set = 1,binding = 0) uniform PerComponentUniform{
+	mat4 model;
+	vec4 material;	
+} per_component_uniform;
+
 vec3 lightPos = vec3(100.0,100.0,100);
 
 out gl_PerVertex 
@@ -21,8 +26,9 @@ out gl_PerVertex
 };
 
 
+
 void main() 
 {
-	mat4 viewModelMatrix = mvp.shadow_view * mvp.model;
+	mat4 viewModelMatrix = mvp.shadow_view * mvp.model * per_component_uniform.model;
 	gl_Position = mvp.proj * viewModelMatrix * vec4(inPos.xyz, 1.0);
 }

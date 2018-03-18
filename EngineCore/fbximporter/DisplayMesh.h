@@ -15,7 +15,7 @@
 #include "DisplayCommon.h"
 
 
-void DisplayMesh(FbxNode* pNode,Entity e);
+void DisplayMesh(FbxNode* pNode,Entity e,FbxManager* manager = nullptr);
 
 #endif // #ifndef _DISPLAY_MESH_H
 

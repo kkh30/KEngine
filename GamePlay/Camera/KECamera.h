@@ -1,14 +1,18 @@
 #ifndef __KE_CAMERA_H__
 #define __KE_CAMERA_H__
-#define GLM_FORCE_INLINE 
 #define GLM_FORCE_AVX2
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "glm\glm.hpp"
 #include "glm\matrix.hpp"
-#include "glm\gtx\matrix_operation.inl"
-#include "glm\gtc\matrix_transform.inl"
+#include "glm\gtx\matrix_operation.hpp"
+#include "glm\gtc\matrix_transform.hpp"
 #include "KEWindow.h"
 
-static const glm::mat4 VK_CLIP_CORRECTION_MAT = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.0f, 0.0f, 0.0f, 0.5f, 1.0f);
+static const glm::mat4 VK_CLIP_CORRECTION_MAT = glm::mat4(
+	1.0f, 0.0f, 0.0f, 0.0f, 
+	0.0f,-1.0f, 0.0f, 0.0f,
+	0.0f, 0.0f,0.5f, 0.0f, 
+	0.0f, 0.0f, 0.5f, 1.0f);
 
 class KECamera
 {

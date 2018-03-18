@@ -99,9 +99,13 @@ public:
 		buffer_info.range = size;
 	}
 
-	void UpdateUniformBuffer(void* src) {
+	INLINE void UpdateUniformBuffer(void* src,uint32_t offset = 0) {
 
-		memmove(m_data_host_ptr, src, size);
+		memmove(reinterpret_cast<uint8_t*>(m_data_host_ptr) + offset, src, size);
+	}
+	INLINE void UpdateUniformBuffer(void* src,uint32_t p_size, uint32_t offset = 0) {
+
+		memmove(reinterpret_cast<uint8_t*>(m_data_host_ptr) + offset, src, p_size);
 	}
 
 	UniformBuffer():GPUBuffer()

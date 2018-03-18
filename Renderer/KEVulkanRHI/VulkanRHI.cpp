@@ -38,12 +38,13 @@ namespace KEVulkanRHI {
 		EnumeratePhaysicalDevices();
 		InitLogicDevice();
 		InitCmdQueue();
+		InitDescPool();
+		InitPipelineLayout();
 		InitSwapChain();
 		InitGraphicsCommandPool();
 		InitDepthStencil();
 		InitRenderPass();
 		InitShadowMapPass();
-		InitPipelineLayout();
 		InitUniforms();
 		InitPiplineState();
 		InitFrameBuffer();
@@ -56,23 +57,15 @@ namespace KEVulkanRHI {
 
 	void VulkanRHI::InitUniforms() {
 		InitCameraUniforms();
+		InitRenderComponentUniforms();
 
 	}
 
 
 	void VulkanRHI::InitCameraUniforms() {
 
-		//1. alloc desc_set for camera uniform.
-		VkDescriptorSetAllocateInfo l_desc_set_alloc_info = {};
-		l_desc_set_alloc_info.descriptorPool = m_desc_pool;
-		l_desc_set_alloc_info.descriptorSetCount = 1;
-		l_desc_set_alloc_info.pSetLayouts = &m_desc_set_layout;
-		l_desc_set_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		vkAllocateDescriptorSets(m_vk_device.logicalDevice, &l_desc_set_alloc_info, &m_camera_uniform.desc_set);
-
-		
 		//2.alloc uniform buffer for camera uniform.
-		m_camera_uniform.buffer = UniformBuffer(sizeof(glm::mat4) * 3);
+		m_camera_uniform.buffer = UniformBuffer(sizeof(glm::mat4) * 4);
 
 
 		//3. update descriptor set.
@@ -81,7 +74,7 @@ namespace KEVulkanRHI {
 		l_write_desc_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		l_write_desc_set.dstArrayElement = 0;
 		l_write_desc_set.dstBinding = 0;
-		l_write_desc_set.dstSet = m_camera_uniform.desc_set;
+		l_write_desc_set.dstSet = m_scene_desc_set;
 		l_write_desc_set.pBufferInfo = &m_camera_uniform.buffer.buffer_info;
 		l_write_desc_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		vkUpdateDescriptorSets(m_vk_device.logicalDevice, 1,&l_write_desc_set, 0, nullptr);
@@ -148,6 +141,65 @@ namespace KEVulkanRHI {
 
 		VK_CHECK_RESULT(vkCreateRenderPass(m_vk_device.logicalDevice, &renderPassInfo, nullptr, &m_shadowmapPass));
 
+	}
+
+	void VulkanRHI::InitDescPool()
+	{
+		VkDescriptorPoolSize l_desc_pool_uniform_size = {};
+		l_desc_pool_uniform_size.descriptorCount = 10;
+		l_desc_pool_uniform_size.type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+		VkDescriptorPoolSize l_desc_pool_combined_sampler_size = {};
+		l_desc_pool_combined_sampler_size.descriptorCount = 1;
+		l_desc_pool_combined_sampler_size.type = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+		std::array<VkDescriptorPoolSize, 2> l_descriptor_size = { l_desc_pool_uniform_size,l_desc_pool_combined_sampler_size };
+
+		VkDescriptorPoolCreateInfo l_desc_pool_create_info = {};
+		l_desc_pool_create_info.maxSets = 10;
+		l_desc_pool_create_info.poolSizeCount = l_descriptor_size.size();
+		l_desc_pool_create_info.pPoolSizes = l_descriptor_size.data();
+		l_desc_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		vkCreateDescriptorPool(m_vk_device.logicalDevice, &l_desc_pool_create_info, nullptr, &m_desc_pool);
+
+	}
+
+	void VulkanRHI::InitRenderComponentUniforms()
+	{
+
+		auto& vk_per_component_uniform_system = PerComponentSystem::GetSystem();
+		auto& render_system = RenderSystem::GetSystem();
+		auto& all_entites = EntityManager::GetEntityManager().GetAllEntities();
+		for (auto e : all_entites) {
+			
+			auto& render_component = render_system.GetEntityComponent(e);
+
+			//Allocation
+			PerComponentUniform l_per_component_uniform;
+
+			l_per_component_uniform.buffer.UpdateUniformBuffer(&render_component.local_transform[m_currentBuffer]);
+			l_per_component_uniform.buffer.UpdateUniformBuffer(&render_component.material,sizeof(float) * 4,sizeof(render_component.local_transform[0]));
+
+			VkDescriptorSetAllocateInfo l_desc_set_alloc_info = {};
+			l_desc_set_alloc_info.descriptorPool = m_desc_pool;
+			l_desc_set_alloc_info.descriptorSetCount = 1;
+			l_desc_set_alloc_info.pSetLayouts = &m_per_component_desc_set_layout;
+			l_desc_set_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+			vkAllocateDescriptorSets(m_vk_device.logicalDevice, &l_desc_set_alloc_info, &l_per_component_uniform.desc_set);
+			//Update
+			VkWriteDescriptorSet l_write_desc_set = {};
+			l_write_desc_set.descriptorCount = 1;
+			l_write_desc_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			l_write_desc_set.dstBinding = 0;
+			l_write_desc_set.dstSet = l_per_component_uniform.desc_set;
+			l_write_desc_set.pBufferInfo = &l_per_component_uniform.buffer.buffer_info;
+			l_write_desc_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			vkUpdateDescriptorSets(m_vk_device.logicalDevice, 1, &l_write_desc_set, 0, nullptr);
+
+			vk_per_component_uniform_system.AddEntityComponent(e, l_per_component_uniform);
+		}
+
+		
 	}
 
 	void VulkanRHI::prepareVertices()
@@ -260,39 +312,60 @@ namespace KEVulkanRHI {
 
 
 	void VulkanRHI::InitPipelineLayout() {
+		//Scne DescSet Layout(CameraUniforms and Shadowmap)
+		{
+			//Camera Uniform Buffer Binding
+			VkDescriptorSetLayoutBinding l_binding0 = {};
+			l_binding0.binding = 0;
+			l_binding0.descriptorCount = 1;
+			l_binding0.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			l_binding0.pImmutableSamplers = nullptr;
+			l_binding0.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-		VkDescriptorPoolSize l_desc_pool_size = {};
-		l_desc_pool_size.descriptorCount = 1;
-		l_desc_pool_size.type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			//ShadowMap Sampler Image Binding
+			VkDescriptorSetLayoutBinding l_binding1 = {};
+			l_binding1.binding = 1;
+			l_binding1.descriptorCount = 1;
+			l_binding1.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			l_binding1.pImmutableSamplers = nullptr;
+			l_binding1.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-		VkDescriptorPoolCreateInfo l_desc_pool_create_info = {};
-		l_desc_pool_create_info.maxSets = 1;
-		l_desc_pool_create_info.poolSizeCount = 1;
-		l_desc_pool_create_info.pPoolSizes = &l_desc_pool_size;
-		l_desc_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		vkCreateDescriptorPool(m_vk_device.logicalDevice, &l_desc_pool_create_info, nullptr, &m_desc_pool);
+			std::array<VkDescriptorSetLayoutBinding, 2> l_bindings = { l_binding0 ,l_binding1};
 
+			VkDescriptorSetLayoutCreateInfo l_desc_set_layout_create_info = {};
+			l_desc_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+			l_desc_set_layout_create_info.bindingCount = l_bindings.size();
+			l_desc_set_layout_create_info.pBindings = l_bindings.data();
+			vkCreateDescriptorSetLayout(m_vk_device.logicalDevice, &l_desc_set_layout_create_info, nullptr, &m_scene_desc_set_layout);
 
-		//Camera Uniform Buffer Binding
-		VkDescriptorSetLayoutBinding l_binding0 = {};
-		l_binding0.binding = 0;
-		l_binding0.descriptorCount = 1;
-		l_binding0.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		l_binding0.pImmutableSamplers = nullptr;
-		l_binding0.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		}
 
-		VkDescriptorSetLayoutCreateInfo l_desc_set_layout_create_info = {};
-		l_desc_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		l_desc_set_layout_create_info.bindingCount = 1;
-		l_desc_set_layout_create_info.pBindings = &l_binding0;
-		vkCreateDescriptorSetLayout(m_vk_device.logicalDevice, &l_desc_set_layout_create_info, nullptr, &m_desc_set_layout);
+		//Per RenderComponent Uniforms (Transform uniforms)
+		{
+			//Camera Uniform Buffer Binding
+			VkDescriptorSetLayoutBinding l_binding0 = {};
+			l_binding0.binding = 0;
+			l_binding0.descriptorCount = 1;
+			l_binding0.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			l_binding0.pImmutableSamplers = nullptr;
+			l_binding0.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-		
+			std::array<VkDescriptorSetLayoutBinding, 1> l_bindings = { l_binding0 };
+
+			VkDescriptorSetLayoutCreateInfo l_desc_set_layout_create_info = {};
+			l_desc_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+			l_desc_set_layout_create_info.bindingCount = l_bindings.size();
+			l_desc_set_layout_create_info.pBindings = l_bindings.data();
+			vkCreateDescriptorSetLayout(m_vk_device.logicalDevice, &l_desc_set_layout_create_info, nullptr, &m_per_component_desc_set_layout);
+
+		}
+
+		std::array<VkDescriptorSetLayout, 2> desc_set_layouts = { m_scene_desc_set_layout ,m_per_component_desc_set_layout };
 
 		VkPipelineLayoutCreateInfo l_pipeline_layout_create_info = {};
 		l_pipeline_layout_create_info.pPushConstantRanges = nullptr;
-		l_pipeline_layout_create_info.pSetLayouts = &m_desc_set_layout;
-		l_pipeline_layout_create_info.setLayoutCount = 1;
+		l_pipeline_layout_create_info.pSetLayouts = desc_set_layouts.data();
+		l_pipeline_layout_create_info.setLayoutCount = desc_set_layouts.size();
 		l_pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		vkCreatePipelineLayout(m_vk_device.logicalDevice, &l_pipeline_layout_create_info, nullptr, &m_pipeline_layout);
 
@@ -346,10 +419,11 @@ namespace KEVulkanRHI {
 			scissor.offset.x = 0;
 			scissor.offset.y = 0;
 			vkCmdSetScissor(m_draw_cmd_buffers[i], 0, 1, &scissor);
-
-
+			
+			
+			//VkDescriptorSet l_desc_sets[2] = { m_camera_uniform.desc_set,m_shadowmap_desc_set };
 			// Bind descriptor sets describing shader binding points
-			vkCmdBindDescriptorSets(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1,&m_camera_uniform.desc_set, 0, nullptr);
+			vkCmdBindDescriptorSets(m_draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &m_scene_desc_set, 0, nullptr);
 			
 			// Bind the rendering pipeline
 			// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
@@ -418,10 +492,13 @@ namespace KEVulkanRHI {
 		scissor.offset.y = 0;
 		vkCmdSetScissor(m_shadow_map_cmd, 0, 1, &scissor);
 
+		vkCmdSetDepthBias(
+			m_shadow_map_cmd,
+			1.25,
+			0.0f,
+			1.75);
 
-		// Bind descriptor sets describing shader binding points
-		vkCmdBindDescriptorSets(m_shadow_map_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 1, &m_camera_uniform.desc_set, 0, nullptr);
-
+		
 		// Bind the rendering pipeline
 		// The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified at pipeline creation time
 		vkCmdBindPipeline(m_shadow_map_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline[1]);
@@ -446,13 +523,16 @@ namespace KEVulkanRHI {
 
 
 	void VulkanRHI::DrawGameScene(VkCommandBuffer p_draw_command_buffer) {
+
 		auto& all_entites = EntityManager::GetEntityManager().GetAllEntities();
-		System<KERenderComponent>& render_component_system = System<KERenderComponent>::GetSystem();
+		auto& render_component_system = System<KERenderComponent>::GetSystem();
+		auto& vk_per_component_uniform_system = PerComponentSystem::GetSystem();
+
 		for (auto& entity : all_entites) {
 			auto& render_component = render_component_system.GetEntityComponent(entity);
-			//vkCmdDraw(p_draw_command_buffer, render_component.vertex_count, 1, render_component.first_vertex, 0);
-			//todo::vertex offset应该使用，多个vertices upload的时候，后面的rendercomponent应该有vertex offset(同一个vertex buffer)
-			// first_index 有点类似于vertex offset
+			auto& per_component_uniform = vk_per_component_uniform_system.GetEntityComponent(entity);
+			VkDescriptorSet l_desc_sets[2] = { m_scene_desc_set,per_component_uniform.desc_set };
+			vkCmdBindDescriptorSets(p_draw_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layout, 0, 2, l_desc_sets, 0, nullptr);
 			vkCmdDrawIndexed(p_draw_command_buffer, static_cast<uint32_t>(render_component.index_count), 1, static_cast<uint32_t>(render_component.first_index), static_cast<int32_t>(render_component.first_vertex), 0);
 		}
 	}
@@ -498,11 +578,12 @@ namespace KEVulkanRHI {
 			VkPipelineRasterizationStateCreateInfo rasterizationState = {};
 			rasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 			rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
-			rasterizationState.cullMode = VK_CULL_MODE_NONE;
+			rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
 			rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-			rasterizationState.depthClampEnable = VK_FALSE;
+			rasterizationState.depthClampEnable = true;
 			rasterizationState.rasterizerDiscardEnable = VK_FALSE;
-			rasterizationState.depthBiasEnable = VK_FALSE;
+			rasterizationState.depthBiasEnable = true;
+			rasterizationState.depthBiasClamp = 5.5;
 			rasterizationState.lineWidth = 1.0f;
 			l_pipeline_create_info.pRasterizationState = &rasterizationState;
 
@@ -512,6 +593,7 @@ namespace KEVulkanRHI {
 			std::vector<VkDynamicState> dynamicStateEnables;
 			dynamicStateEnables.push_back(VK_DYNAMIC_STATE_VIEWPORT);
 			dynamicStateEnables.push_back(VK_DYNAMIC_STATE_SCISSOR);
+			
 			VkPipelineDynamicStateCreateInfo dynamicState = {};
 			dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 			dynamicState.pDynamicStates = dynamicStateEnables.data();
@@ -531,9 +613,9 @@ namespace KEVulkanRHI {
 			depthStencilState.depthBoundsTestEnable = VK_FALSE;
 			depthStencilState.back.failOp = VK_STENCIL_OP_KEEP;
 			depthStencilState.back.passOp = VK_STENCIL_OP_KEEP;
-			depthStencilState.back.compareOp = VK_COMPARE_OP_ALWAYS;
 			depthStencilState.stencilTestEnable = VK_FALSE;
 			depthStencilState.front = depthStencilState.back;
+			depthStencilState.back.compareOp = VK_COMPARE_OP_ALWAYS;
 			l_pipeline_create_info.pDepthStencilState = &depthStencilState;
 
 		//}
@@ -636,7 +718,19 @@ namespace KEVulkanRHI {
 		l_shadow_map_pipeline_create_info.pStages = &shadowShaderStages;
 		l_shadow_map_pipeline_create_info.pColorBlendState = nullptr;
 		l_shadow_map_pipeline_create_info.flags = VK_PIPELINE_CREATE_DERIVATIVE_BIT ;
+		auto shadow_rasterizationState = rasterizationState;
+		shadow_rasterizationState.cullMode = VK_CULL_MODE_FRONT_BIT;
+		l_shadow_map_pipeline_create_info.pRasterizationState = &shadow_rasterizationState;
+		std::vector<VkDynamicState> l_shadow_map_dynamicStateEnables;
+		l_shadow_map_dynamicStateEnables.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+		l_shadow_map_dynamicStateEnables.push_back(VK_DYNAMIC_STATE_SCISSOR);
+		l_shadow_map_dynamicStateEnables.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
 
+		VkPipelineDynamicStateCreateInfo l_shadow_map_dynamicState = {};
+		l_shadow_map_dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		l_shadow_map_dynamicState.pDynamicStates = l_shadow_map_dynamicStateEnables.data();
+		l_shadow_map_dynamicState.dynamicStateCount = static_cast<uint32_t>(l_shadow_map_dynamicStateEnables.size());
+		l_shadow_map_pipeline_create_info.pDynamicState = &l_shadow_map_dynamicState;
 		
 
 		l_pipeline_create_info.flags = VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT;
@@ -832,7 +926,7 @@ namespace KEVulkanRHI {
 			image.arrayLayers = 1;
 			image.samples = VK_SAMPLE_COUNT_1_BIT;
 			image.tiling = VK_IMAGE_TILING_OPTIMAL;
-			image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+			image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 			image.flags = 0;
 
 			VkMemoryAllocateInfo mem_alloc = {};
@@ -855,16 +949,51 @@ namespace KEVulkanRHI {
 			depthStencilView.subresourceRange.layerCount = 1;
 
 			VkMemoryRequirements memReqs;
-
 			VK_CHECK_RESULT(vkCreateImage(m_vk_device.logicalDevice, &image, nullptr, &m_shadowmap_buffer.image));
 			vkGetImageMemoryRequirements(m_vk_device.logicalDevice, m_shadowmap_buffer.image, &memReqs);
 			mem_alloc.allocationSize = memReqs.size;
 			mem_alloc.memoryTypeIndex = m_vk_device.getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			VK_CHECK_RESULT(vkAllocateMemory(m_vk_device.logicalDevice, &mem_alloc, nullptr, &m_shadowmap_buffer.mem));
 			VK_CHECK_RESULT(vkBindImageMemory(m_vk_device.logicalDevice, m_shadowmap_buffer.image, m_shadowmap_buffer.mem, 0));
-
 			depthStencilView.image = m_shadowmap_buffer.image;
 			VK_CHECK_RESULT(vkCreateImageView(m_vk_device.logicalDevice, &depthStencilView, nullptr, &m_shadowmap_buffer.view));
+			
+			VkSamplerCreateInfo l_sampler_create_info = {};
+			l_sampler_create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+			l_sampler_create_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+			l_sampler_create_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+			l_sampler_create_info.anisotropyEnable = false;
+			l_sampler_create_info.compareEnable = true;
+			l_sampler_create_info.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+			l_sampler_create_info.minFilter = VkFilter::VK_FILTER_LINEAR;
+			l_sampler_create_info.magFilter = VkFilter::VK_FILTER_LINEAR;
+			l_sampler_create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+			l_sampler_create_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+			vkCreateSampler(m_vk_device.logicalDevice, &l_sampler_create_info, nullptr, &m_shadowmap_sampler);
+
+			//Alloc Descritpor Set for shadowmap to bind to pipeline.
+			{
+				//Allocation
+				VkDescriptorSetAllocateInfo l_desc_set_alloc_info = {};
+				l_desc_set_alloc_info.descriptorPool = m_desc_pool;
+				l_desc_set_alloc_info.descriptorSetCount = 1;
+				l_desc_set_alloc_info.pSetLayouts = &m_scene_desc_set_layout;
+				l_desc_set_alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+				vkAllocateDescriptorSets(m_vk_device.logicalDevice, &l_desc_set_alloc_info, &m_scene_desc_set);
+				//Update
+				VkWriteDescriptorSet l_write_desc_set = {};
+				l_write_desc_set.descriptorCount = 1;
+				l_write_desc_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				l_write_desc_set.dstBinding = 1;
+				l_write_desc_set.dstSet = m_scene_desc_set;
+				VkDescriptorImageInfo l_image_info = {};
+				l_image_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+				l_image_info.imageView = m_shadowmap_buffer.view;
+				l_image_info.sampler = m_shadowmap_sampler;
+				l_write_desc_set.pImageInfo = &l_image_info;
+				l_write_desc_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				vkUpdateDescriptorSets(m_vk_device.logicalDevice, 1, &l_write_desc_set, 0, nullptr);
+			}
 
 		}
 	}
@@ -1040,30 +1169,23 @@ namespace KEVulkanRHI {
 	void VulkanRHI::SetupDebug() {
 		// The report flags determine what type of messages for the layers will be displayed
 		// For validating (debugging) an appplication the error and warning bits should suffice
-		VkDebugReportFlagsEXT debugReportFlags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT| VK_DEBUG_REPORT_INFORMATION_BIT_EXT;
+		VkDebugReportFlagsEXT debugReportFlags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT| VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
 		// Additional flags include performance info, loader and layer debug messages, etc.
 		VkDebug::setupDebugging(m_instance, debugReportFlags, VK_NULL_HANDLE);
 	}
 
 	void VulkanRHI::InitGraphicsCommandPool() {
-
-
 		VkCommandPoolCreateInfo l_cmd_pool_info = {};
 		l_cmd_pool_info.flags = 0;
 		l_cmd_pool_info.queueFamilyIndex = m_vk_device.queueFamilyIndices.graphics;
 		l_cmd_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-
 		vkCreateCommandPool(m_vk_device.logicalDevice, &l_cmd_pool_info, nullptr, &m_graphics_cmd_pool);
-	
-
-	
 	}
 
 	void VulkanRHI::InitLogicDevice() {
 		m_vk_device.CreateDevice(m_physical_devices[0]);
 		std::vector<const char*> l_extensions;
 		m_vk_device.createLogicalDevice(m_vk_device.features, l_extensions);
-
 	}
 
 
@@ -1082,9 +1204,7 @@ namespace KEVulkanRHI {
 			KELog::Log("Device [ %s ] : \n",deviceProperties.deviceName);
 			l_window_title += std::string(deviceProperties.deviceName);
 		}
-
 		SDL_SetWindowTitle(KEWindow::GetWindow().GetSDLWindow(), (l_window_title + std::string("-Vulkan")).c_str());
-
 	}
 
 

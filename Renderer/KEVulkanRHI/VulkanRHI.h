@@ -19,9 +19,19 @@
 
 namespace KEVulkanRHI {
 
-	
-	
+	struct PerComponentUniform {
+		VkDescriptorSet desc_set;
+		UniformBuffer buffer;
+		PerComponentUniform():
+			desc_set(VK_NULL_HANDLE),
+			buffer(UniformBuffer(sizeof(glm::mat4) + sizeof(float) * 4))
+		{
 
+		}
+	};
+
+	using PerComponentSystem = System<PerComponentUniform>;
+	
 	class VulkanRHI : public RHI
 	{
 	public:
@@ -49,9 +59,12 @@ namespace KEVulkanRHI {
 		}m_depth_stencil_buffer;
 
 		DepthStencilBuffer m_shadowmap_buffer;
-
+		VkDescriptorSet m_scene_desc_set;
 		VkRenderPass m_renderPass;
 		VkRenderPass m_shadowmapPass;
+		VkSampler m_shadowmap_sampler;
+
+
 
 		std::vector<VkFramebuffer> m_frameBuffers;
 		VkFramebuffer m_shadowmap_framebuffer;
@@ -70,7 +83,9 @@ namespace KEVulkanRHI {
 		VkDescriptorPool m_desc_pool;
 		VkPipelineLayout m_pipeline_layout;
 		VkPipelineCache m_pipeline_cache;
-		VkDescriptorSetLayout m_desc_set_layout;
+		VkDescriptorSetLayout m_scene_desc_set_layout;
+		VkDescriptorSetLayout m_per_component_desc_set_layout;
+
 		// Vertex buffer and attributes
 		struct {
 			VkDeviceMemory memory;															// Handle to the device memory for this buffer
@@ -119,6 +134,8 @@ namespace KEVulkanRHI {
 		void InitUniforms();
 		void InitCameraUniforms();
 		void InitShadowMapPass();
+		void InitDescPool();
+		void InitRenderComponentUniforms();
 
 		int createVulkanSurface(VkInstance instance, SDL_Window* window, VkSurfaceKHR* surface);
 		std::vector<const char*> getAvailableWSIExtensions();

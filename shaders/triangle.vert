@@ -13,11 +13,24 @@ layout (set = 0,binding = 0) uniform MVP{
 	
 } mvp;
 
+layout (set = 1,binding = 0) uniform PerComponentUniform{
+	mat4 model;
+	vec4 material;
+} per_component_uniform;
+
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec4 outViewPos;
 layout (location = 2) out vec4 outViewLightPos;
+layout (location = 3) out vec4 shadow_coord;
+layout (location = 4) out vec4 outMaterial;
 
-vec3 lightPos = vec3(100.0,100.0,100);
+vec3 lightPos = vec3(10.0,10.0,10.0);
+const mat4 biasMat = mat4( 
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.5, 0.5, 0.0, 1.0 );
+
 
 out gl_PerVertex 
 {
@@ -27,10 +40,11 @@ out gl_PerVertex
 
 void main() 
 {
-	mat4 viewModelMatrix = mvp.view * mvp.model;
+	outMaterial = per_component_uniform.material;
+	mat4 viewModelMatrix = mvp.view * mvp.model * per_component_uniform.model ;
 	outNormal = (transpose(inverse(viewModelMatrix)) * vec4(inNormal,0)).xyz;
 	//outNormal = (mvp.view * mvp.model * vec4(inNormal,0)).xyz;
-	
+	shadow_coord = biasMat * mvp.proj * mvp.shadow_view * mvp.model * per_component_uniform.model * vec4(inPos.xyz, 1.0);
 	outViewPos = viewModelMatrix *vec4(inPos,1);
 	outViewLightPos = mvp.view *vec4(lightPos,1);
 	gl_Position = mvp.proj * viewModelMatrix * vec4(inPos.xyz, 1.0);

@@ -8,8 +8,7 @@
 #include <fbxsdk.h>
 #include "fbximporter\DisplayMesh.h"
 #include "fbximporter\Common.h"
-
-void static DisplayContent(FbxNode* pNode, Entity e)
+void static DisplayContent(FbxNode* pNode, FbxManager* manager = nullptr)
 {
 	FbxNodeAttribute::EType lAttributeType;
 	int i;
@@ -35,7 +34,8 @@ void static DisplayContent(FbxNode* pNode, Entity e)
 			//    break;
 
 		case FbxNodeAttribute::eMesh:
-			DisplayMesh(pNode,e);
+			auto e = EntityManager::GetEntityManager().CreateEntity();
+			DisplayMesh(pNode,e,manager);
 			break;
 
 			//case FbxNodeAttribute::eNurbs:      
@@ -68,11 +68,11 @@ void static DisplayContent(FbxNode* pNode, Entity e)
 
 	for (i = 0; i < pNode->GetChildCount(); i++)
 	{
-		DisplayContent(pNode->GetChild(i),e);
+		DisplayContent(pNode->GetChild(i));
 	}
 }
 
-void static DisplayContent(FbxScene* pScene,Entity e)
+void static DisplayContent(FbxScene* pScene, FbxManager* manager = nullptr)
 {
 	int i;
 	FbxNode* lNode = pScene->GetRootNode();
@@ -81,7 +81,7 @@ void static DisplayContent(FbxScene* pScene,Entity e)
 	{
 		for (i = 0; i < lNode->GetChildCount(); i++)
 		{
-			DisplayContent(lNode->GetChild(i),e);
+			DisplayContent(lNode->GetChild(i),manager);
 		}
 	}
 }
@@ -124,32 +124,42 @@ int main(int argc, char **argv) {
 	FbxScene* lScene = NULL;
 	bool lResult;
 
+
+
 	// Prepare the FBX SDK.
 	InitializeSdkObjects(lSdkManager, lScene);
-
 	lResult = LoadScene(lSdkManager, lScene, argv[1]);
+	DisplayContent(lScene);
 
-	//FbxAxisSystem vulkan_axis_system(FbxAxisSystem::EUpVector::eYAxis,FbxAxisSystem::EFrontVector::eParityEven,FbxAxisSystem::eRightHanded);
-	//vulkan_axis_system.ConvertScene(lScene);
+	auto floor = KERenderComponent({
+		{ { -1.0f, 0.0f, 1.0f, },{ 0.0f, 1.0f,  0.0f } },
+		{ { -1.0f, 0.0f, -1.0f, },{ 0.0f, 1.0f,  0.0f } },
+		{ { 1.0f,  0.0f, -1.0f, },{ 0.0f, 1.0f,  0.0f } },
+		{ { 1.0f,  0.0f, 1.0f, },{ 0.0f, 1.0f,  0.0f } },
+		}, { 0,2,1,0,3,2 });
+	floor.SetScale(glm::vec3(0.1));
+	floor.material[0] = { 0.75f  };
+	floor.material[1] = { 0.47f };
+	floor.material[2] = { 0.15f };
+	floor.material[3] = { 1.0f };
 
-	//if (lResult == false)
-	//{
-	//	FBXSDK_printf("\n\nAn error occurred while loading the scene...");
-	//}
-	//
-	DisplayContent(lScene,entity0);
+	render_system.AddEntityComponent(entity1, floor);
+	System<KERenderComponent>& render_component_system = System<KERenderComponent>::GetSystem();
+	auto& all_entites = EntityManager::GetEntityManager().GetAllEntities();
 
-	
-	
-	render_system.AddEntityComponent(entity1, KERenderComponent({
-		{ { -100,  100, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-		{ { -100,  -100, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-		{ { 100, -100, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-		{ { 100, 100, 0.0f },{ 0.0f, 0.0f, 1.0f } },
-		}, { 0,1,2,0,2,3 }));
-	
-	
+	for (auto& entity : all_entites) {
+		auto& render_component = render_component_system.GetEntityComponent(entity);
 
+		render_component.SetScale(glm::vec3(5.0f));
+		//render_component.SetLocalTranslation(
+		//	glm::vec3(
+		//		float(rand()) / RAND_MAX * 0.1f,
+		//		float(rand()) / RAND_MAX * 0.1f, 
+		//		float(rand()) / RAND_MAX * 0.1f
+		//	));
+	}
+	render_component_system.GetEntityComponent(*all_entites.begin()).SetLocalTranslation(glm::vec3(2.0f));
+	
 
 	auto& camera = KECamera::GetCamera();
 
