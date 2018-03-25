@@ -146,7 +146,7 @@ namespace KEVulkanRHI {
 	void VulkanRHI::InitDescPool()
 	{
 		VkDescriptorPoolSize l_desc_pool_uniform_size = {};
-		l_desc_pool_uniform_size.descriptorCount = 10;
+		l_desc_pool_uniform_size.descriptorCount = 1000;
 		l_desc_pool_uniform_size.type = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 
 		VkDescriptorPoolSize l_desc_pool_combined_sampler_size = {};
@@ -156,8 +156,8 @@ namespace KEVulkanRHI {
 		std::array<VkDescriptorPoolSize, 2> l_descriptor_size = { l_desc_pool_uniform_size,l_desc_pool_combined_sampler_size };
 
 		VkDescriptorPoolCreateInfo l_desc_pool_create_info = {};
-		l_desc_pool_create_info.maxSets = 10;
-		l_desc_pool_create_info.poolSizeCount = l_descriptor_size.size();
+		l_desc_pool_create_info.maxSets = 1000;
+		l_desc_pool_create_info.poolSizeCount = static_cast<uint32_t>(l_descriptor_size.size());
 		l_desc_pool_create_info.pPoolSizes = l_descriptor_size.data();
 		l_desc_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		vkCreateDescriptorPool(m_vk_device.logicalDevice, &l_desc_pool_create_info, nullptr, &m_desc_pool);
@@ -169,16 +169,18 @@ namespace KEVulkanRHI {
 
 		auto& vk_per_component_uniform_system = PerComponentSystem::GetSystem();
 		auto& render_system = RenderSystem::GetSystem();
+		auto& transform_system = TransformSystem::GetSystem();
 		auto& all_entites = EntityManager::GetEntityManager().GetAllEntities();
 		for (auto e : all_entites) {
 			
 			auto& render_component = render_system.GetEntityComponent(e);
+			auto& transform_component = transform_system.GetEntityComponent(e);
 
 			//Allocation
 			PerComponentUniform l_per_component_uniform;
 
-			l_per_component_uniform.buffer.UpdateUniformBuffer(&render_component.local_transform[m_currentBuffer]);
-			l_per_component_uniform.buffer.UpdateUniformBuffer(&render_component.material,sizeof(float) * 4,sizeof(render_component.local_transform[0]));
+			l_per_component_uniform.buffer.UpdateUniformBuffer(&transform_component.m_transform[m_currentBuffer]);
+			l_per_component_uniform.buffer.UpdateUniformBuffer(&render_component.material,sizeof(float) * 4,sizeof(glm::mat4));
 
 			VkDescriptorSetAllocateInfo l_desc_set_alloc_info = {};
 			l_desc_set_alloc_info.descriptorPool = m_desc_pool;
@@ -334,7 +336,7 @@ namespace KEVulkanRHI {
 
 			VkDescriptorSetLayoutCreateInfo l_desc_set_layout_create_info = {};
 			l_desc_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-			l_desc_set_layout_create_info.bindingCount = l_bindings.size();
+			l_desc_set_layout_create_info.bindingCount = static_cast<uint32_t>(l_bindings.size());
 			l_desc_set_layout_create_info.pBindings = l_bindings.data();
 			vkCreateDescriptorSetLayout(m_vk_device.logicalDevice, &l_desc_set_layout_create_info, nullptr, &m_scene_desc_set_layout);
 
@@ -354,7 +356,7 @@ namespace KEVulkanRHI {
 
 			VkDescriptorSetLayoutCreateInfo l_desc_set_layout_create_info = {};
 			l_desc_set_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-			l_desc_set_layout_create_info.bindingCount = l_bindings.size();
+			l_desc_set_layout_create_info.bindingCount = static_cast<uint32_t>(l_bindings.size());
 			l_desc_set_layout_create_info.pBindings = l_bindings.data();
 			vkCreateDescriptorSetLayout(m_vk_device.logicalDevice, &l_desc_set_layout_create_info, nullptr, &m_per_component_desc_set_layout);
 
@@ -365,7 +367,7 @@ namespace KEVulkanRHI {
 		VkPipelineLayoutCreateInfo l_pipeline_layout_create_info = {};
 		l_pipeline_layout_create_info.pPushConstantRanges = nullptr;
 		l_pipeline_layout_create_info.pSetLayouts = desc_set_layouts.data();
-		l_pipeline_layout_create_info.setLayoutCount = desc_set_layouts.size();
+		l_pipeline_layout_create_info.setLayoutCount =static_cast<uint32_t>(desc_set_layouts.size());
 		l_pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		vkCreatePipelineLayout(m_vk_device.logicalDevice, &l_pipeline_layout_create_info, nullptr, &m_pipeline_layout);
 
@@ -419,7 +421,11 @@ namespace KEVulkanRHI {
 			scissor.offset.x = 0;
 			scissor.offset.y = 0;
 			vkCmdSetScissor(m_draw_cmd_buffers[i], 0, 1, &scissor);
-			
+			vkCmdSetDepthBias(
+				m_draw_cmd_buffers[i],
+				0.15f,
+				0.0f,
+				2.5f);
 			
 			//VkDescriptorSet l_desc_sets[2] = { m_camera_uniform.desc_set,m_shadowmap_desc_set };
 			// Bind descriptor sets describing shader binding points
@@ -494,9 +500,9 @@ namespace KEVulkanRHI {
 
 		vkCmdSetDepthBias(
 			m_shadow_map_cmd,
-			1.25,
+			0.05f,
 			0.0f,
-			1.75);
+			2.5f);
 
 		
 		// Bind the rendering pipeline
@@ -593,7 +599,8 @@ namespace KEVulkanRHI {
 			std::vector<VkDynamicState> dynamicStateEnables;
 			dynamicStateEnables.push_back(VK_DYNAMIC_STATE_VIEWPORT);
 			dynamicStateEnables.push_back(VK_DYNAMIC_STATE_SCISSOR);
-			
+			dynamicStateEnables.push_back(VK_DYNAMIC_STATE_DEPTH_BIAS);
+
 			VkPipelineDynamicStateCreateInfo dynamicState = {};
 			dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 			dynamicState.pDynamicStates = dynamicStateEnables.data();
@@ -739,7 +746,7 @@ namespace KEVulkanRHI {
 
 		std::array<VkGraphicsPipelineCreateInfo, 2> l_pipeline_create_infos = { l_pipeline_create_info,l_shadow_map_pipeline_create_info };
 		// Create rendering pipeline using the specified states
-		VK_CHECK_RESULT(vkCreateGraphicsPipelines(m_vk_device.logicalDevice, m_pipeline_cache, l_pipeline_create_infos.size(), l_pipeline_create_infos.data(), nullptr, m_graphics_pipeline.data()));
+		VK_CHECK_RESULT(vkCreateGraphicsPipelines(m_vk_device.logicalDevice, m_pipeline_cache, static_cast<uint32_t>(l_pipeline_create_infos.size()), l_pipeline_create_infos.data(), nullptr, m_graphics_pipeline.data()));
 
 	}
 

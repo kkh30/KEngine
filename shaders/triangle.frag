@@ -28,5 +28,5 @@ void main()
   float diffuse = clamp(dot(normal,normalize(light_dir)),0.0,1.0);
   float specular = pow(clamp(dot(normal,normalize(h)),0.0,1.0),20.0);
   float shadow = textureProj(shadowmap, shadow_coord);
-  outFragColor = ambient + inMaterial * shadow * (diffuse * 0.45 + specular) ;
+  outFragColor = ambient + shadow * inMaterial  * (diffuse * 0.45 + specular) ;
 }

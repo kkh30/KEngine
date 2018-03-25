@@ -18,7 +18,7 @@
 #include "DisplayCache.h"
 #include "ECS/KEEntity.h"
 #include "ECS/KESystem.h"
-
+#include "ECS/KETransformComponent.h"
 #if defined (FBXSDK_ENV_MAC)
 // disable the “format not a string literal and no format arguments?warning since
 // the FBXSDK_printf calls made here are all valid calls and there is no secuity risk
@@ -40,11 +40,11 @@ void DisplayMesh(FbxNode* pNode,Entity e, FbxManager* manager)
 {
     FbxMesh* lMesh = (FbxMesh*) pNode->GetNodeAttribute ();
 
-	if (!lMesh->IsTriangleMesh())
-	{
-		FbxGeometryConverter clsConverter(manager);
-		clsConverter.Triangulate(pNode->GetNodeAttribute(),true);
-	}
+	//if (!lMesh->IsTriangleMesh())
+	//{
+	//	FbxGeometryConverter clsConverter(manager);
+	//	clsConverter.Triangulate(pNode->GetNodeAttribute(),true);
+	//}
 
     DisplayString("Mesh Name: ", (char *) pNode->GetName());
     DisplayMetaDataConnections(lMesh);
@@ -57,10 +57,13 @@ void DisplayMesh(FbxNode* pNode,Entity e, FbxManager* manager)
     //DisplayLink(lMesh);
     //DisplayShape(lMesh);
 	//DisplayCache(lMesh);
-	auto l_transform = pNode->LclTranslation.Get();
+	//auto l_transform = pNode->LclTranslation.Get();
 	auto& render_component = RenderSystem::GetSystem().GetEntityComponent(e);
-	render_component.SetLocalTranslation(glm::vec3(l_transform.mData[0] * 5.0f, l_transform.mData[1] * 5.0f, l_transform.mData[2] * 5.0f));
-	
+	auto& transform_system = TransformSystem::GetSystem();
+	KETransformComponent l_transform = {};
+	transform_system.AddEntityComponent(e, l_transform);
+	//render_component.SetLocalTranslation(glm::vec3(l_transform.mData[0] * 2.0f, l_transform.mData[1] * 2.0f, l_transform.mData[2] * 2.0f));
+	srand(unsigned int( time(0)));
 	auto r = float(rand()) / RAND_MAX;
 	auto g = float(rand()) / RAND_MAX;
 	auto b = float(rand()) / RAND_MAX;

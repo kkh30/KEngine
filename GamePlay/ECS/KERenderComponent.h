@@ -32,9 +32,7 @@ struct KERenderComponent
 	uint64_t first_vertex;
 	uint64_t first_index;
 
-	//Local Transform
-	enum { TRIPLE_BUFFER_SIZE = 3 };
-	glm::mat4 local_transform[TRIPLE_BUFFER_SIZE];
+	
 	float material[4];
 
 	
@@ -46,7 +44,7 @@ struct KERenderComponent
 		vertex_count(uint32_t(p_vertices.size())),
 		first_index(0),
 		first_vertex(0),
-		local_transform(),
+		//local_transform(),
 		material()
 	{
 		auto& l_memory_system = KEMemorySystem::GetMemorySystem();
@@ -65,7 +63,7 @@ struct KERenderComponent
 		vertex_count(uint32_t(p_vertices.size())),
 		first_index(0),
 		first_vertex(0),
-		local_transform(),
+		//local_transform(),
 		material()
 
 	{
@@ -83,7 +81,7 @@ struct KERenderComponent
 		vertex_count(uint32_t(p_vertices.size())),
 		first_index(0),
 		first_vertex(0),
-		local_transform(),
+		//local_transform(),
 		material()
 
 	{
@@ -103,7 +101,7 @@ struct KERenderComponent
 		vertex_count(uint32_t(p_vertices.size())),
 		first_index(0),
 		first_vertex(0),
-		local_transform(),
+		//local_transform(),
 		material()
 
 	{
@@ -121,7 +119,7 @@ struct KERenderComponent
 		vertex_count(0),
 		first_index(0),
 		first_vertex(0),
-		local_transform(),
+		//local_transform(),
 		material()
 
 	{
@@ -167,15 +165,7 @@ struct KERenderComponent
 
 	}
 
-	void SetLocalTransform(const glm::mat4& p_transform,uint8_t p_current_buffer = 0) {
-		local_transform[p_current_buffer] = p_transform;
-	}
-	void SetLocalTranslation(const glm::vec3& p_translation, uint8_t p_current_buffer = 0) {
-		local_transform[p_current_buffer] = glm::translate(local_transform[p_current_buffer], p_translation);
-	}
-	void SetScale(const glm::vec3& p_translation, uint8_t p_current_buffer = 0) {
-		local_transform[p_current_buffer] = glm::scale(local_transform[p_current_buffer], p_translation);
-	}
+	
 	void SetMaterial(float* p_material) {
 		memcpy(material, p_material, sizeof(float) * 4);
 	}

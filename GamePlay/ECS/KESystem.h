@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include "KEEntity.h"
 #include "KERenderComponent.h"
-
+#include "KETransformComponent.h"
 
 using ComponentID = uint32_t;
 
@@ -52,5 +52,6 @@ private:
 };
 
 using RenderSystem = System<KERenderComponent>;
+using TransformSystem = System<KETransformComponent>;
 
 #endif // !_COMPONENT_H__

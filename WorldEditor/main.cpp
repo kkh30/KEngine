@@ -8,6 +8,7 @@
 #include <fbxsdk.h>
 #include "fbximporter\DisplayMesh.h"
 #include "fbximporter\Common.h"
+#include "ECS\KETransformComponent.h"
 void static DisplayContent(FbxNode* pNode, FbxManager* manager = nullptr)
 {
 	FbxNodeAttribute::EType lAttributeType;
@@ -117,6 +118,7 @@ int main(int argc, char **argv) {
 	auto value = component_system.GetEntityComponent(entity0);
 
 	auto& render_system = System<KERenderComponent>::GetSystem();
+	auto& transform_system = TransformSystem::GetSystem();
 
 
 
@@ -132,25 +134,29 @@ int main(int argc, char **argv) {
 	DisplayContent(lScene);
 
 	auto floor = KERenderComponent({
-		{ { -1.0f, 0.0f, 1.0f, },{ 0.0f, 1.0f,  0.0f } },
-		{ { -1.0f, 0.0f, -1.0f, },{ 0.0f, 1.0f,  0.0f } },
-		{ { 1.0f,  0.0f, -1.0f, },{ 0.0f, 1.0f,  0.0f } },
-		{ { 1.0f,  0.0f, 1.0f, },{ 0.0f, 1.0f,  0.0f } },
+		{ { -100.0f, 0.0f, 100.0f, },{ 0.0f, 1.0f,  0.0f } },
+		{ { -100.0f, 0.0f, -100.0f, },{ 0.0f, 1.0f,  0.0f } },
+		{ { 100.0f,  0.0f, -100.0f, },{ 0.0f, 1.0f,  0.0f } },
+		{ { 100.0f,  0.0f, 100.0f, },{ 0.0f, 1.0f,  0.0f } },
 		}, { 0,2,1,0,3,2 });
-	floor.SetScale(glm::vec3(0.1));
-	floor.material[0] = { 0.75f  };
+	auto floor_transform = KETransformComponent();
+	floor_transform.SetScale(glm::vec3(0.1f));
+	//floor.SetScale();
+	floor.material[0] = { 0.15f  };
 	floor.material[1] = { 0.47f };
-	floor.material[2] = { 0.15f };
+	floor.material[2] = { 0.75f };
 	floor.material[3] = { 1.0f };
 
 	render_system.AddEntityComponent(entity1, floor);
+	transform_system.AddEntityComponent(entity1, floor_transform);
 	System<KERenderComponent>& render_component_system = System<KERenderComponent>::GetSystem();
 	auto& all_entites = EntityManager::GetEntityManager().GetAllEntities();
 
 	for (auto& entity : all_entites) {
 		auto& render_component = render_component_system.GetEntityComponent(entity);
+		auto& transform_component = transform_system.GetSystem().GetEntityComponent(entity);
 
-		render_component.SetScale(glm::vec3(5.0f));
+		transform_component.SetScale(glm::vec3(1.0f));
 		//render_component.SetLocalTranslation(
 		//	glm::vec3(
 		//		float(rand()) / RAND_MAX * 0.1f,
@@ -158,7 +164,7 @@ int main(int argc, char **argv) {
 		//		float(rand()) / RAND_MAX * 0.1f
 		//	));
 	}
-	render_component_system.GetEntityComponent(*all_entites.begin()).SetLocalTranslation(glm::vec3(2.0f));
+	//render_component_system.GetEntityComponent(*all_entites.begin()).SetLocalTranslation(glm::vec3(2.0f));
 	
 
 	auto& camera = KECamera::GetCamera();
